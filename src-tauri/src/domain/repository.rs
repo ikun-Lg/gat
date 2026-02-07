@@ -58,3 +58,11 @@ pub struct BatchFailure {
     pub path: String,
     pub error: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StashInfo {
+    pub index: usize,
+    pub message: String,
+    pub id: String,
+}

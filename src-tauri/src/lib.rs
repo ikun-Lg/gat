@@ -36,6 +36,12 @@ pub fn run() {
             batch_commit,
             generate_commit_message,
             review_code,
+            // Stash commands
+            get_stash_list,
+            stash_save,
+            stash_apply,
+            stash_pop,
+            stash_drop,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

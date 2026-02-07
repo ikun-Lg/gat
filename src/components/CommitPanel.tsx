@@ -1,7 +1,7 @@
 import { useRepoStore } from '../store/repoStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { Button } from './ui/Button';
-import { Sparkles, Bot, X } from 'lucide-react';
+import { Sparkles, Bot, X, Archive } from 'lucide-react';
 import { useState } from 'react';
 import Markdown from 'react-markdown';
 import { cn } from '../lib/utils';
@@ -12,7 +12,7 @@ interface CommitPanelProps {
 }
 
 export function CommitPanel({ repoPath, mode }: CommitPanelProps) {
-  const { currentStatus, commit, batchCommit, generateCommitMessage, reviewCode } = useRepoStore();
+  const { currentStatus, commit, batchCommit, generateCommitMessage, reviewCode, stashSave } = useRepoStore();
   const { commitLanguage } = useSettingsStore();
   const [message, setMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
@@ -73,6 +73,22 @@ export function CommitPanel({ repoPath, mode }: CommitPanelProps) {
       console.error('提交失败:', e);
     } finally {
       setIsCommitting(false);
+    }
+  };
+
+  const [isStashing, setIsStashing] = useState(false);
+  const handleStash = async () => {
+    const paths = Array.isArray(repoPath) ? repoPath : [repoPath];
+    const path = paths[0];
+    
+    setIsStashing(true);
+    try {
+      await stashSave(path, message || undefined, true);
+      setMessage('');
+    } catch (e) {
+      console.error('Stash failed:', e);
+    } finally {
+      setIsStashing(false);
     }
   };
 
@@ -177,9 +193,9 @@ export function CommitPanel({ repoPath, mode }: CommitPanelProps) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
           <Button
-            className="w-full h-9 font-medium text-xs rounded-lg shadow-sm active:scale-[0.99] transition-all duration-200"
+            className="flex-1 h-9 font-medium text-xs rounded-lg shadow-sm active:scale-[0.99] transition-all duration-200"
             onClick={handleCommit}
             disabled={!hasStaged || !message.trim() || isCommitting}
           >
@@ -192,6 +208,22 @@ export function CommitPanel({ repoPath, mode }: CommitPanelProps) {
                 mode === 'single' ? '确认提交' : `批量提交 (${Array.isArray(repoPath) ? repoPath.length : 1} 个项目)`
             )}
           </Button>
+
+          {mode === 'single' && (
+            <Button
+              variant="outline"
+              className="h-9 px-3 font-medium text-xs rounded-lg shadow-sm active:scale-[0.99] transition-all duration-200 border-border/60 hover:bg-secondary/50"
+              onClick={handleStash}
+              disabled={isStashing || (!currentStatus?.unstaged.length && !currentStatus?.untracked.length && !currentStatus?.staged.length)}
+              title="贮存当前更改"
+            >
+              {isStashing ? (
+                <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              ) : (
+                <Archive className="w-4 h-4" />
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </div>

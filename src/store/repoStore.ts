@@ -9,6 +9,7 @@ import type {
   BatchCommitResult,
   LocalBranch,
   ReviewResult,
+  StashInfo,
 } from '../types';
 
 interface RepoStore {
@@ -22,6 +23,7 @@ interface RepoStore {
   commitHistory: CommitInfo[];
   isLoading: boolean;
   error: string | null;
+  stashes: StashInfo[];
 
   // Actions
   setRepositories: (repos: Repository[]) => void;
@@ -37,6 +39,7 @@ interface RepoStore {
   refreshAllRepoStatus: () => Promise<void>;
   loadLocalBranches: (path: string) => Promise<void>;
   loadCommitHistory: (path: string, limit?: number) => Promise<void>;
+  loadStashes: (path: string) => Promise<void>;
 
   // Git operations
   stageFile: (repoPath: string, filePath: string) => Promise<void>;
@@ -55,6 +58,11 @@ interface RepoStore {
   renameBranch: (path: string, oldName: string, newName: string) => Promise<void>;
   createBranch: (path: string, newBranchName: string, baseBranchName: string) => Promise<void>;
   mergeBranch: (path: string, branchName: string) => Promise<void>;
+  
+  stashSave: (path: string, message?: string, includeUntracked?: boolean) => Promise<void>;
+  stashApply: (path: string, index: number) => Promise<void>;
+  stashPop: (path: string, index: number) => Promise<void>;
+  stashDrop: (path: string, index: number) => Promise<void>;
 
   generateCommitMessage: (repoPath: string, diffContent?: string) => Promise<CommitSuggestion>;
   reviewCode: (repoPath: string, diffContent?: string) => Promise<ReviewResult>;
@@ -75,6 +83,7 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
   commitHistory: [],
   isLoading: false,
   error: null,
+  stashes: [],
   selectedFile: null,
   selectedFileDiff: null,
   
@@ -94,6 +103,7 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
       get().refreshStatus(path);
       get().refreshBranchInfo(path);
       get().loadLocalBranches(path);
+      get().loadStashes(path);
     }
   },
 
@@ -220,6 +230,15 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
     }
   },
 
+  loadStashes: async (path) => {
+    try {
+      const stashes = await invoke<StashInfo[]>('get_stash_list', { path });
+      set({ stashes });
+    } catch (e) {
+      console.error('Failed to load stashes:', e);
+    }
+  },
+
   loadCommitHistory: async (path, limit = 20) => {
     try {
       const history = await invoke<CommitInfo[]>('get_commit_history', { path, limit });
@@ -324,6 +343,28 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
     await get().refreshStatus(path);
     await get().refreshBranchInfo(path);
     await get().loadCommitHistory(path);
+  },
+
+  stashSave: async (path, message, includeUntracked = false) => {
+    await invoke('stash_save', { path, message, includeUntracked });
+    await get().loadStashes(path);
+    await get().refreshStatus(path);
+  },
+
+  stashApply: async (path, index) => {
+    await invoke('stash_apply', { path, index });
+    await get().refreshStatus(path);
+  },
+
+  stashPop: async (path, index) => {
+    await invoke('stash_pop', { path, index });
+    await get().loadStashes(path);
+    await get().refreshStatus(path);
+  },
+
+  stashDrop: async (path, index) => {
+    await invoke('stash_drop', { path, index });
+    await get().loadStashes(path);
   },
 
   generateCommitMessage: async (repoPath, diffContent) => {

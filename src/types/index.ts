@@ -93,6 +93,12 @@ export interface BatchFailure {
   error: string;
 }
 
+export interface StashInfo {
+  index: number;
+  message: string;
+  id: string;
+}
+
 // Settings types
 export interface Settings {
   workDir: string | null;

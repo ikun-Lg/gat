@@ -5,7 +5,8 @@ import { FileList } from './FileList';
 import { CommitPanel } from './CommitPanel';
 import { BranchSelector } from './BranchSelector';
 import { DiffView } from './DiffView';
-import { AlertCircle, Upload, RotateCcw, GitCommit, Download, GitGraph, Clock, FileDiff } from 'lucide-react';
+import { StashPanel } from './StashPanel';
+import { AlertCircle, Upload, RotateCcw, GitCommit, Download, GitGraph, Clock, FileDiff, Archive } from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { useState, useEffect } from 'react';
@@ -19,7 +20,7 @@ interface RepoViewProps {
   repoPath: string;
 }
 
-type ViewMode = 'changes' | 'history';
+type ViewMode = 'changes' | 'history' | 'stashes';
 
 export function RepoView({ repoPath }: RepoViewProps) {
   const { 
@@ -216,6 +217,18 @@ export function RepoView({ repoPath }: RepoViewProps) {
                 <Clock className="w-3.5 h-3.5" />
                 历史
               </button>
+              <button
+                onClick={() => setViewMode('stashes')}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all",
+                  viewMode === 'stashes' 
+                    ? "bg-background shadow-sm text-foreground" 
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                )}
+              >
+                <Archive className="w-3.5 h-3.5" />
+                贮存
+              </button>
            </div>
 
            <div className="flex items-center gap-3">
@@ -389,6 +402,13 @@ export function RepoView({ repoPath }: RepoViewProps) {
                    )}
                 </div>
              </div>
+           </div>
+        )}
+
+        {/* Stashes View */}
+        {viewMode === 'stashes' && (
+           <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
+             <StashPanel />
            </div>
         )}
 
