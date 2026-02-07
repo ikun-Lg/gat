@@ -3,6 +3,12 @@ import { persist } from 'zustand/middleware';
 import type { Settings } from '../types';
 
 interface SettingsStore extends Settings {
+  // Git username and password/token
+  gitUsername: string | null;
+  gitPassword: string | null;
+  setGitUsername: (username: string | null) => void;
+  setGitPassword: (password: string | null) => void;
+  // Existing
   setWorkDir: (dir: string | null) => void;
   setAiProvider: (provider: 'heuristic' | 'deepseek' | 'glm') => void;
   setDeepseekApiKey: (key: string | null) => void;
@@ -23,6 +29,8 @@ export const useSettingsStore = create<SettingsStore>()(
       commitLanguage: 'zh',
       commitFormat: 'conventional',
       customPrompt: null,
+      gitUsername: null,
+      gitPassword: null,
 
       // Actions
       setWorkDir: (dir) => set({ workDir: dir }),
@@ -32,6 +40,8 @@ export const useSettingsStore = create<SettingsStore>()(
       setCommitLanguage: (lang) => set({ commitLanguage: lang }),
       setCommitFormat: (format) => set({ commitFormat: format }),
       setCustomPrompt: (prompt) => set({ customPrompt: prompt }),
+      setGitUsername: (username) => set({ gitUsername: username }),
+      setGitPassword: (password) => set({ gitPassword: password }),
     }),
     {
       name: 'gayt-settings',

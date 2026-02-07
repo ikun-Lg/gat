@@ -1,148 +1,35 @@
 import { useRepoStore } from '../store/repoStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { GitBranch, Cloud, Check, Upload } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Store } from '@tauri-apps/plugin-store';
 
 interface BranchSelectorProps {
   repoPath: string;
 }
 
-interface AuthDialogProps {
-  repoPath: string;
-  onSubmit: (username: string, password: string) => void;
-  onCancel: () => void;
-  title: string;
-}
-
-const STORE_PATH = 'git_credentials.json';
-
-// Save credential to store
-async function saveCredential(repoPath: string, username: string, password: string): Promise<void> {
-  const store = await Store.load(STORE_PATH);
-  const key = `credential_${repoPath}`;
-  await store.set(key, { username, password });
-  await store.save();
-}
-
-// Load credential from store
-async function loadCredential(repoPath: string): Promise<{ username: string; password: string } | null> {
-  const store = await Store.load(STORE_PATH);
-  const key = `credential_${repoPath}`;
-  const cred = await store.get<{ username: string; password: string }>(key);
-  return cred || null;
-}
-
-function AuthDialog({ repoPath, onSubmit, onCancel, title }: AuthDialogProps) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-
-  // Load saved credential and default username
-  useEffect(() => {
-    Promise.all([
-      loadCredential(repoPath),
-      invoke<string | null>('get_git_username', { path: repoPath })
-    ])
-      .then(([savedCred, gitUsername]) => {
-        if (savedCred) {
-          setUsername(savedCred.username);
-          setPassword(savedCred.password);
-        } else if (gitUsername) {
-          setUsername(gitUsername);
-        }
-      })
-      .catch(console.error)
-      .finally(() => setIsLoading(false));
-  }, [repoPath]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Save credential before submitting
-    saveCredential(repoPath, username, password).catch(console.error);
-    onSubmit(username, password);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <Card className="w-80 p-4">
-        <h3 className="text-lg font-semibold mb-4">{title}</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          请输入您的 Git 凭据
-        </p>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-3">
-            <div>
-              <label className="text-sm font-medium">用户名</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border rounded-md"
-                placeholder="git"
-                disabled={isLoading}
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">密码 / Token</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border rounded-md pr-8"
-                  placeholder="Personal Access Token"
-                  disabled={isLoading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? '🙈' : '👁️'}
-                </button>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              凭据将加密保存在本地，下次使用时自动填充
-            </p>
-          </div>
-          <div className="flex gap-2 mt-4">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1"
-              onClick={onCancel}
-              disabled={isLoading}
-            >
-              取消
-            </Button>
-            <Button
-              type="submit"
-              className="flex-1"
-              disabled={!username || !password || isLoading}
-            >
-              确认
-            </Button>
-          </div>
-        </form>
-      </Card>
-    </div>
-  );
-}
-
 export function BranchSelector({ repoPath }: BranchSelectorProps) {
   const { currentBranchInfo, localBranches, switchBranch, publishBranch, pushBranch, loadLocalBranches, refreshBranchInfo } = useRepoStore();
+  const { gitUsername: savedUsername, gitPassword } = useSettingsStore();
   const [isOpen, setIsOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [authDialogTitle, setAuthDialogTitle] = useState('身份验证');
-  const [authAction, setAuthAction] = useState<'publish' | 'push'>('publish');
+  const [gitUsername, setGitUsername] = useState<string>(savedUsername || '');
+
+  // Load git username from config if not saved
+  useEffect(() => {
+    if (!savedUsername) {
+      invoke<string | null>('get_git_username', { path: repoPath })
+        .then(name => {
+          if (name) setGitUsername(name);
+        })
+        .catch(() => {});
+    } else {
+      setGitUsername(savedUsername);
+    }
+  }, [repoPath, savedUsername]);
 
   const currentBranch = currentBranchInfo?.current || '';
   const isPublished = currentBranchInfo?.isPublished ?? false;
@@ -157,36 +44,60 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
     }
   };
 
-  const handlePublish = () => {
-    setErrorMessage(null);
-    setAuthAction('publish');
-    setAuthDialogTitle('发布分支');
-    setShowAuthDialog(true);
-  };
+  const handlePublish = async () => {
+    if (!gitPassword) {
+      setErrorMessage('请先在设置中配置 Git Token');
+      return;
+    }
+    if (!gitUsername) {
+      setErrorMessage('请先在设置中配置 Git 用户名');
+      return;
+    }
 
-  const handlePush = () => {
-    setErrorMessage(null);
-    setAuthAction('push');
-    setAuthDialogTitle('推送提交');
-    setShowAuthDialog(true);
-  };
-
-  const handleAuthSubmit = async (username: string, password: string) => {
-    setShowAuthDialog(false);
     setIsPublishing(true);
     setErrorMessage(null);
     try {
-      if (authAction === 'publish') {
-        await publishBranch(repoPath, currentBranch, 'origin', username, password);
-      } else {
-        await pushBranch(repoPath, currentBranch, 'origin', username, password);
-      }
-      // 刷新分支信息
+      await publishBranch(
+        repoPath,
+        currentBranch,
+        'origin',
+        gitUsername,
+        gitPassword
+      );
       await refreshBranchInfo(repoPath);
-      // 操作成功，关闭下拉菜单
       setIsOpen(false);
     } catch (e) {
-      console.error(authAction === 'publish' ? '发布分支失败:' : '推送失败:', e);
+      console.error('发布分支失败:', e);
+      setErrorMessage(String(e));
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handlePush = async () => {
+    if (!gitPassword) {
+      setErrorMessage('请先在设置中配置 Git Token');
+      return;
+    }
+    if (!gitUsername) {
+      setErrorMessage('请先在设置中配置 Git 用户名');
+      return;
+    }
+
+    setIsPublishing(true);
+    setErrorMessage(null);
+    try {
+      await pushBranch(
+        repoPath,
+        currentBranch,
+        'origin',
+        gitUsername,
+        gitPassword
+      );
+      await refreshBranchInfo(repoPath);
+      setIsOpen(false);
+    } catch (e) {
+      console.error('推送失败:', e);
       setErrorMessage(String(e));
     } finally {
       setIsPublishing(false);
@@ -216,15 +127,6 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
           <span className="text-xs text-muted-foreground">(未发布)</span>
         )}
       </Button>
-
-      {showAuthDialog && (
-        <AuthDialog
-          repoPath={repoPath}
-          onSubmit={handleAuthSubmit}
-          onCancel={() => setShowAuthDialog(false)}
-          title={authDialogTitle}
-        />
-      )}
 
       {isOpen && (
         <>
@@ -268,7 +170,7 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
                     disabled={isPublishing}
                   >
                     <Upload className="w-4 h-4 mr-2" />
-                    {isPublishing && authAction === 'push' ? '推送中...' : `推送提交 (${currentBranchInfo?.ahead || 0})`}
+                    {isPublishing ? '推送中...' : `推送提交 (${currentBranchInfo?.ahead || 0})`}
                   </Button>
                 )}
                 {!isPublished && (
@@ -283,7 +185,7 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
                     disabled={isPublishing}
                   >
                     <Cloud className="w-4 h-4 mr-2" />
-                    {isPublishing && authAction === 'publish' ? '发布中...' : '发布分支'}
+                    {isPublishing ? '发布中...' : '发布分支'}
                   </Button>
                 )}
                 {errorMessage && (
