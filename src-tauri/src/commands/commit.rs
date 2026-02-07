@@ -589,5 +589,155 @@ fn parse_ai_response(content: &str, _lang: &str) -> std::result::Result<CommitSu
         suggestion = suggestion.with_body(body);
     }
 
+
     Ok(suggestion)
+}
+
+/// Review code using AI
+#[tauri::command]
+pub async fn review_code(
+    path: String,
+    provider: String,
+    api_key: Option<String>,
+    diff_content: Option<String>,
+    custom_prompt: Option<String>,
+) -> std::result::Result<String, String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+
+    // Get diff for context
+    let diff = if let Some(content) = diff_content {
+        content
+    } else {
+        get_diff_summary(&repo).map_err(|e| e.to_string())?
+    };
+
+    match provider.as_str() {
+        "deepseek" => review_with_deepseek(&diff, api_key, custom_prompt.as_deref()).await,
+        "glm" => review_with_glm(&diff, api_key, custom_prompt.as_deref()).await,
+        _ => Err("Unsupported provider for code review".to_string()),
+    }
+}
+
+async fn review_with_deepseek(
+    diff: &str,
+    api_key: Option<String>,
+    custom_prompt: Option<&str>,
+) -> std::result::Result<String, String> {
+    let api_key = api_key.ok_or("DeepSeek 需要 API Key".to_string())?;
+
+    let client = reqwest::Client::new();
+
+    let system_prompt = "你是一个由于 Google Deepmind 团队设计的高级 AI 编程助手。你的任务是审查代码变更。
+请关注以下几点：
+1. 潜在的 bug 和错误
+2. 代码风格和最佳实践
+3. 性能问题
+4. 安全隐患
+
+请使用 Markdown 格式返回审查结果。保持客观、建设性。如果代码看起来不错，也可以给出肯定。";
+
+    let user_prompt = if let Some(custom) = custom_prompt {
+        custom.replace("{{changes}}", diff)
+    } else {
+        format!("请审查以下代码变更：\n\n{}", diff)
+    };
+
+    let response = client
+        .post("https://api.deepseek.com/v1/chat/completions")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&json!({
+            "model": "deepseek-chat",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt
+                }
+            ],
+            "temperature": 0.3,
+            "max_tokens": 1000
+        }))
+        .send()
+        .await
+        .map_err(|e| format!("HTTP error: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("API error: {} - {}", status, text));
+    }
+
+    let json: serde_json::Value = response.json().await.map_err(|e| format!("JSON error: {}", e))?;
+
+    let content = json["choices"][0]["message"]["content"]
+        .as_str()
+        .ok_or("Invalid response format".to_string())?;
+
+    Ok(content.to_string())
+}
+
+async fn review_with_glm(
+    diff: &str,
+    api_key: Option<String>,
+    custom_prompt: Option<&str>,
+) -> std::result::Result<String, String> {
+    let api_key = api_key.ok_or("GLM 需要 API Key".to_string())?;
+
+    let client = reqwest::Client::new();
+
+    let system_prompt = "你是一个由于 Google Deepmind 团队设计的高级 AI 编程助手。你的任务是审查代码变更。
+请关注以下几点：
+1. 潜在的 bug 和错误
+2. 代码风格和最佳实践
+3. 性能问题
+4. 安全隐患
+
+请使用 Markdown 格式返回审查结果。保持客观、建设性。如果代码看起来不错，也可以给出肯定。";
+
+    let user_prompt = if let Some(custom) = custom_prompt {
+        custom.replace("{{changes}}", diff)
+    } else {
+        format!("请审查以下代码变更：\n\n{}", diff)
+    };
+
+    let response = client
+        .post("https://open.bigmodel.cn/api/paas/v4/chat/completions")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&json!({
+            "model": "glm-4-flash",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt
+                }
+            ],
+            "temperature": 0.3,
+            "max_tokens": 1000
+        }))
+        .send()
+        .await
+        .map_err(|e| format!("HTTP error: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("API error: {} - {}", status, text));
+    }
+
+    let json: serde_json::Value = response.json().await.map_err(|e| format!("JSON error: {}", e))?;
+
+    let content = json["choices"][0]["message"]["content"]
+        .as_str()
+        .ok_or("Invalid response format".to_string())?;
+
+    Ok(content.to_string())
 }

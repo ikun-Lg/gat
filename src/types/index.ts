@@ -64,6 +64,10 @@ export interface CommitSuggestion {
   formatted: string;
 }
 
+export interface ReviewResult {
+  content: string;
+}
+
 export type CommitType =
   | "feat"
   | "fix"

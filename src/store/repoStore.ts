@@ -8,6 +8,7 @@ import type {
   CommitSuggestion,
   BatchCommitResult,
   LocalBranch,
+  ReviewResult,
 } from '../types';
 
 interface RepoStore {
@@ -52,6 +53,7 @@ interface RepoStore {
   pushBranch: (path: string, branchName: string, remote?: string, username?: string, password?: string) => Promise<void>;
 
   generateCommitMessage: (repoPath: string, diffContent?: string) => Promise<CommitSuggestion>;
+  reviewCode: (repoPath: string, diffContent?: string) => Promise<ReviewResult>;
 }
 
 export const useRepoStore = create<RepoStore>((set, get) => ({
@@ -291,5 +293,21 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
       commitFormat: settings.commitFormat,
       customPrompt: settings.customPrompt,
     });
+  },
+
+  reviewCode: async (repoPath, diffContent) => {
+     // Import settings store dynamically to avoid circular dependency
+    const { useSettingsStore } = await import('./settingsStore');
+    const settings = useSettingsStore.getState();
+
+    const content = await invoke<string>('review_code', {
+      path: repoPath,
+      provider: settings.aiProvider,
+      apiKey: settings.aiProvider === 'deepseek' ? settings.deepseekApiKey : settings.glmApiKey,
+      diffContent,
+      customPrompt: settings.customPrompt,
+    });
+
+    return { content };
   },
 }));

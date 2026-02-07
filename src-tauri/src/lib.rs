@@ -30,6 +30,7 @@ pub fn run() {
             revoke_latest_commit,
             batch_commit,
             generate_commit_message,
+            review_code,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
