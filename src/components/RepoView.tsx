@@ -475,6 +475,7 @@ export function RepoView({ repoPath }: RepoViewProps) {
                 {selectedFile && (
                   <div className="w-2/3 border-l border-border/40 animate-in slide-in-from-right duration-300">
                     <DiffView 
+                      repoPath={repoPath}
                       filename={selectedFile} 
                       diff={selectedFileDiff} 
                       onClose={() => selectFile(repoPath, null)} 

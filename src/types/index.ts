@@ -159,3 +159,20 @@ export interface Settings {
   commitFormat: "conventional" | "custom";
   customPrompt: string | null;
 }
+
+export interface DiffLine {
+  content: string;
+  origin: string; // char in rust, string in js
+  oldLineno: number | null;
+  newLineno: number | null;
+}
+
+export interface DiffHunk {
+  header: string;
+  lines: DiffLine[];
+}
+
+export interface FileDiff {
+  path: string;
+  hunks: DiffHunk[];
+}

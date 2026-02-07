@@ -84,3 +84,26 @@ pub struct RemoteInfo {
     pub url: Option<String>,
     pub push_url: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffLine {
+    pub content: String,
+    pub origin: char,
+    pub old_lineno: Option<u32>,
+    pub new_lineno: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffHunk {
+    pub header: String,
+    pub lines: Vec<DiffLine>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileDiff {
+    pub path: String,
+    pub hunks: Vec<DiffHunk>,
+}

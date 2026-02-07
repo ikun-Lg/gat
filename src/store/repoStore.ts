@@ -16,6 +16,7 @@ import type {
   ConflictResolution,
   RebaseState,
   RebaseTodo,
+  FileDiff,
 } from '../types';
 
 interface RepoStore {
@@ -108,8 +109,9 @@ interface RepoStore {
   reviewCode: (repoPath: string, diffContent?: string) => Promise<ReviewResult>;
 
   selectedFile: string | null;
-  selectedFileDiff: string | null;
+  selectedFileDiff: FileDiff | null;
   selectFile: (repoPath: string, filePath: string | null) => Promise<void>;
+  stageChunk: (repoPath: string, patch: string) => Promise<void>;
 }
 
 export const useRepoStore = create<RepoStore>((set, get) => ({
@@ -130,7 +132,7 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
   selectedFileDiff: null,
   mergeState: null,
   rebaseState: null,
-
+  
   // Actions
   setRepositories: (repos) => set({ repositories: repos }),
 
@@ -482,12 +484,27 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
     }
 
     try {
-      const diff = await invoke<string>('get_file_diff', { path: repoPath, filePath });
+      const diff = await invoke<FileDiff>('get_file_diff', { path: repoPath, filePath });
       set({ selectedFile: filePath, selectedFileDiff: diff });
     } catch (e) {
       console.error('Failed to get file diff:', e);
-      set({ selectedFile: filePath, selectedFileDiff: 'Error loading diff' });
+      set({ selectedFile: filePath, selectedFileDiff: null }); 
     }
+  },
+
+  stageChunk: async (repoPath, patch) => {
+      console.log('stageChunk called with:', { repoPath, patchLength: patch.length });
+      if (!repoPath) {
+        console.error('stageChunk: repoPath is missing!');
+        return; // Early return to prevent IPC error, though we want to fix the caller
+      }
+      await invoke('apply_patch', { path: repoPath, patch });
+      // Refresh status and re-fetch diff to show updated state
+      await get().refreshStatus(repoPath);
+      const selectedFile = get().selectedFile;
+      if (selectedFile) {
+          await get().selectFile(repoPath, selectedFile);
+      }
   },
 
   cloneRepository: async (url, destination, username, password) => {

@@ -84,6 +84,91 @@ pub async fn unstage_all(path: String) -> std::result::Result<(), String> {
     Ok(())
 }
 
+/// Apply a patch to the index (stage selected changes)
+#[tauri::command]
+pub async fn apply_patch(path: String, patch: String) -> std::result::Result<(), String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    // We receive the patch. To handle untracked files, we might need to parse the filename from the patch
+    // or just try to apply.
+    // If we want to support untracked files, we need to know the filename to `git add -N` it.
+    // Let's try to parse "+++ b/filename" from the patch header?
+    // The patch header path usually matches the file.
+    
+    // Simple parser for one-file patches
+    if let Some(line) = patch.lines().find(|l| l.starts_with("+++ b/")) {
+        let filename = &line[6..];
+        let path_obj = std::path::Path::new(filename);
+        
+        // Check if file is tracked
+        let status = repo.status_file(path_obj).map_err(|_| "Failed to check status").ok();
+        if let Some(s) = status {
+            if s.is_wt_new() {
+                 // It's a new file (untracked). "git add -N" it.
+                 let mut index = repo.index().map_err(|e| e.to_string())?;
+                 index.add_path(path_obj).map_err(|e| e.to_string())?;
+                 // add_path adds it. But we want intent-to-add? 
+                 // libgit2 index.add_path behaves like `git add`. It stages the file content!
+                 // WE DO NOT WANT TO STAGE FULL CONTENT yet. We want to apply patch.
+                 // So `index.add_path` stages the *current workdir content*.
+                 // This effectively stages the whole file!
+                 // If the file is modified in workdir, `add_path` stages it.
+                 
+                 // If we stage the whole file, then applying the patch is redundant/wrong if we only wanted partial?
+                 // If we want partial stage of a NEW file:
+                 // 1. `git add -N file` (empty content in index, but tracked)
+                 // 2. `git apply --cached patch`
+                 
+                 // How to do `git add -N` with libgit2? 
+                 // It seems libgit2 doesn't easily support intent-to-add (skip-worktree?).
+                 // Maybe use `Command` to run `git add -N`.
+                 
+                 let workdir = repo.workdir().ok_or("No workdir")?;
+                 std::process::Command::new("git")
+                    .arg("add")
+                    .arg("-N")
+                    .arg(filename)
+                    .current_dir(workdir)
+                    .output()
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
+    apply_patch_impl(&repo, &patch).map_err(|e| e.to_string())
+}
+
+fn apply_patch_impl(repo: &Repository, patch: &str) -> Result<()> {
+    let workdir = repo.workdir().ok_or(AppError::InvalidInput("No workdir".to_string()))?;
+
+    let mut child = std::process::Command::new("git")
+        .arg("apply")
+        .arg("--cached")
+        .arg("--whitespace=nowarn")
+        .arg("--ignore-space-change")
+        .arg("--recount")
+        .arg("-")
+        .current_dir(workdir)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| AppError::Io(e))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        use std::io::Write;
+        stdin.write_all(patch.as_bytes()).map_err(|e| AppError::Io(e))?;
+    }
+
+    let output = child.wait_with_output().map_err(|e| AppError::Io(e))?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::InvalidInput(format!("Failed to apply patch: {}", error)));
+    }
+
+    Ok(())
+}
+
 /// Commit changes in a repository
 #[tauri::command]
 pub async fn commit(path: String, message: String) -> std::result::Result<String, String> {

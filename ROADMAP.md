@@ -73,15 +73,15 @@
   - [X] 合并完成后标记为已解决
 
 #### 2.3 交互式操作
-- [ ] **交互式 Rebase**
-  - [ ] 可视化 commit 列表，支持拖拽排序
-  - [ ] pick/reword/edit/squash/fixup/drop 操作
-  - [ ] Rebase 进度显示
-  - [ ] 冲突时暂停与继续
+- [X] **交互式 Rebase**
+  - [X] 可视化 commit 列表，支持拖拽排序
+  - [X] pick/reword/edit/squash/fixup/drop 操作
+  - [X] Rebase 进度显示
+  - [X] 冲突时暂停与继续
 
-- [ ] **交互式 Add**
-  - [ ] 按行暂存（patch mode）
-  - [ ] 文件内选择部分变更暂存
+- [X] **交互式 Add**
+  - [X] 按行暂存（patch mode）
+  - [X] 文件内选择部分变更暂存
 
 #### 2.4 性能优化
 - [ ] **大型仓库优化**

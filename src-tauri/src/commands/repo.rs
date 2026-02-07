@@ -1,4 +1,4 @@
-use crate::domain::{RepositoryInfo, RepoStatus, StatusItem, BranchInfo, CommitInfo, LocalBranch, TagInfo, RemoteInfo, ConflictInfo, MergeState, RebaseState, RebaseTodo};
+use crate::domain::{RepositoryInfo, RepoStatus, StatusItem, BranchInfo, CommitInfo, LocalBranch, TagInfo, RemoteInfo, ConflictInfo, MergeState, RebaseState, RebaseTodo, DiffLine, DiffHunk, FileDiff};
 use crate::error::{AppError, Result};
 use git2::{Repository, StatusOptions};
 use ignore::WalkBuilder;
@@ -704,26 +704,42 @@ fn push_branch_impl(
 
 /// Get diff for a specific file
 #[tauri::command]
-pub async fn get_file_diff(path: String, file_path: String) -> std::result::Result<String, String> {
+pub async fn get_file_diff(path: String, file_path: String) -> std::result::Result<FileDiff, String> {
     let repo = Repository::open(&path).map_err(|e| e.to_string())?;
     get_file_diff_impl(&repo, &file_path).map_err(|e| e.to_string())
 }
 
-fn get_file_diff_impl(repo: &Repository, file_path: &str) -> Result<String> {
+fn get_file_diff_impl(repo: &Repository, file_path: &str) -> Result<FileDiff> {
     let mut opts = git2::DiffOptions::new();
     opts.pathspec(file_path);
+    opts.context_lines(3); // Default context circles
 
-    let mut diff_content = String::new();
+    let mut file_diff = FileDiff {
+        path: file_path.to_string(),
+        hunks: Vec::new(),
+    };
 
     // 1. Check if file is untracked
     let status = repo.status_file(Path::new(file_path))?;
     if status.is_wt_new() {
         // For untracked files, we show the whole content as additions
         let content = std::fs::read_to_string(repo.workdir().unwrap().join(file_path))?;
-        for line in content.lines() {
-            diff_content.push_str(&format!("+{}\n", line));
+        let mut lines = Vec::new();
+        for (i, line) in content.lines().enumerate() {
+            lines.push(DiffLine {
+                content: line.to_string(),
+                origin: '+',
+                old_lineno: None,
+                new_lineno: Some((i + 1) as u32),
+            });
         }
-        return Ok(diff_content);
+        
+        file_diff.hunks.push(DiffHunk {
+            header: "@@ -0,0 +1,".to_string() + &lines.len().to_string() + " @@",
+            lines,
+        });
+        
+        return Ok(file_diff);
     }
 
     // 2. Get staged changes (Index vs HEAD)
@@ -737,30 +753,73 @@ fn get_file_diff_impl(repo: &Repository, file_path: &str) -> Result<String> {
     // 3. Get unstaged changes (Workdir vs Index)
     let unstaged_diff = repo.diff_index_to_workdir(None, Some(&mut opts))?;
 
-    // Format the diffs
-    let mut format_diff = |diff: git2::Diff| -> Result<()> {
-        diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
-            let origin = line.origin();
-            let content = std::str::from_utf8(line.content()).unwrap_or("");
-            match origin {
-                '+' | '-' | ' ' => {
-                    diff_content.push(origin);
-                    diff_content.push_str(content);
+    // Helper to process diff
+    let mut process_diff = |diff: git2::Diff| -> Result<()> {
+        let mut current_hunk: Option<DiffHunk> = None;
+
+        diff.print(git2::DiffFormat::Patch, |_delta, hunk, line| {
+            if let Some(h) = hunk {
+                let header = String::from_utf8_lossy(h.header()).trim().to_string();
+                
+                // If we have a current hunk and the header is different, push it
+                if let Some(ref mut ch) = current_hunk {
+                    if ch.header != header {
+                        let finished_hunk = std::mem::replace(ch, DiffHunk {
+                            header: header.clone(),
+                            lines: Vec::new(),
+                        });
+                        file_diff.hunks.push(finished_hunk);
+                    }
+                } else {
+                    current_hunk = Some(DiffHunk {
+                        header: header.clone(),
+                        lines: Vec::new(),
+                    });
                 }
-                'H' => {
-                    diff_content.push_str(content);
+                
+                // Add line to current hunk
+                if let Some(ref mut ch) = current_hunk {
+                    // git2 gives newlines in content, we might want to trim them or keep them?
+                    // Usually lines in UI don't need newline char at end if they are rendered as blocks.
+                    // But for patch application we need them.
+                    // Let's keep them but maybe trim when creating the struct if needed.
+                    // For now, let's keep exact content for fidelity.
+                    let content_bytes = line.content();
+                    let content = String::from_utf8_lossy(content_bytes);
+                    // Trim the trailing newline for display, but we might need it for patch reconstruction?
+                    // Logic: Frontend usually displays lines without explicit \n. 
+                    // But patch apply needs precise content.
+                    // Let's store content WITHOUT the newline for display, and handle newlines in patch reconstruction if needed.
+                    // Or keep it? The `content` from `git2` includes `\n`.
+                    // The `DiffView` previously split by `\n`.
+                    // Let's keep the newline chars in `content` to be safe for now, 
+                    // OR remove them and let reconstruction handle it.
+                    // Let's remove trailing newline for cleaner JSON and UI.
+                    let content_str = content.trim_end_matches('\n').to_string().trim_end_matches('\r').to_string();
+                    
+                    ch.lines.push(DiffLine {
+                        content: content_str,
+                        origin: line.origin(),
+                        old_lineno: line.old_lineno(),
+                        new_lineno: line.new_lineno(),
+                    });
                 }
-                _ => {}
             }
             true
         })?;
+
+        // Push the last hunk
+        if let Some(ch) = current_hunk {
+            file_diff.hunks.push(ch);
+        }
+        
         Ok(())
     };
 
-    format_diff(staged_diff)?;
-    format_diff(unstaged_diff)?;
+    process_diff(staged_diff)?;
+    process_diff(unstaged_diff)?;
 
-    Ok(diff_content)
+    Ok(file_diff)
 }
 
 /// Merge a branch into the current branch
@@ -1697,14 +1756,26 @@ fn start_interactive_rebase_impl(repo: &Repository, base_commit: &str, commits: 
         .collect::<Vec<_>>()
         .join("\n");
 
+    // Write todo content to a temporary file
+    let todo_path = git_dir.join("rebase-todo-input");
+    std::fs::write(&todo_path, todo_content).map_err(|e| AppError::Io(e))?;
+    
+    // Command to copy our todo content to the file git passes to the editor
+    // On Unix-like systems, we can use 'cp'
+    // On Windows, we might need a different approach, but for now assuming Unix/Mac environment or Git Bash
+    let editor_cmd = format!("cp '{}'", todo_path.to_string_lossy());
+
     // Use git rebase -i with environment variable to provide the todo list
     let result = std::process::Command::new("git")
         .arg("rebase")
         .arg("-i")
         .arg(base_commit)
         .current_dir(workdir)
-        .env("GIT_SEQUENCE_EDITOR", "cat")
+        .env("GIT_SEQUENCE_EDITOR", editor_cmd)
         .output();
+
+    // Clean up temporary file
+    let _ = std::fs::remove_file(todo_path);
 
     match result {
         Ok(output) => {
