@@ -11,6 +11,7 @@ import type {
   ReviewResult,
   StashInfo,
   TagInfo,
+  RemoteInfo,
 } from '../types';
 
 interface RepoStore {
@@ -26,6 +27,7 @@ interface RepoStore {
   error: string | null;
   stashes: StashInfo[];
   tags: TagInfo[];
+  remotes: RemoteInfo[];
 
   // Actions
   setRepositories: (repos: Repository[]) => void;
@@ -43,6 +45,7 @@ interface RepoStore {
   loadCommitHistory: (path: string, limit?: number) => Promise<void>;
   loadStashes: (path: string) => Promise<void>;
   loadTags: (path: string) => Promise<void>;
+  loadRemotes: (path: string) => Promise<void>;
 
   // Git operations
   stageFile: (repoPath: string, filePath: string) => Promise<void>;
@@ -75,6 +78,11 @@ interface RepoStore {
   pushTag: (path: string, tagName: string, remote?: string, username?: string, password?: string) => Promise<void>;
   deleteRemoteTag: (path: string, tagName: string, remote?: string, username?: string, password?: string) => Promise<void>;
 
+  addRemote: (path: string, name: string, url: string) => Promise<void>;
+  removeRemote: (path: string, name: string) => Promise<void>;
+  renameRemote: (path: string, oldName: string, newName: string) => Promise<void>;
+  setRemoteUrl: (path: string, name: string, url: string) => Promise<void>;
+
   generateCommitMessage: (repoPath: string, diffContent?: string) => Promise<CommitSuggestion>;
   reviewCode: (repoPath: string, diffContent?: string) => Promise<ReviewResult>;
   
@@ -96,6 +104,7 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
   error: null,
   stashes: [],
   tags: [],
+  remotes: [],
   selectedFile: null,
   selectedFileDiff: null,
   
@@ -111,6 +120,7 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
       selectedFile: null,
       selectedFileDiff: null,
       tags: [],
+      remotes: [],
     });
     if (path) {
       get().refreshStatus(path);
@@ -118,6 +128,7 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
       get().loadLocalBranches(path);
       get().loadStashes(path);
       get().loadTags(path);
+      get().loadRemotes(path);
     }
   },
 
@@ -505,5 +516,34 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
 
   deleteRemoteTag: async (path, tagName, remote = 'origin', username, password) => {
     await invoke('delete_remote_tag', { path, tagName, remote, username, password });
+  },
+
+  loadRemotes: async (path) => {
+    try {
+      const remotes = await invoke<RemoteInfo[]>('get_remotes', { path });
+      set({ remotes });
+    } catch (e) {
+      console.error('Failed to load remotes:', e);
+    }
+  },
+
+  addRemote: async (path, name, url) => {
+    await invoke('add_remote', { path, name, url });
+    await get().loadRemotes(path);
+  },
+
+  removeRemote: async (path, name) => {
+    await invoke('remove_remote', { path, name });
+    await get().loadRemotes(path);
+  },
+
+  renameRemote: async (path, oldName, newName) => {
+    await invoke('rename_remote', { path, oldName, newName });
+    await get().loadRemotes(path);
+  },
+
+  setRemoteUrl: async (path, name, url) => {
+    await invoke('set_remote_url', { path, name, url });
+    await get().loadRemotes(path);
   },
 }));

@@ -107,6 +107,12 @@ export interface TagInfo {
   date: number | null;
 }
 
+export interface RemoteInfo {
+  name: string;
+  url: string | null;
+  pushUrl: string | null;
+}
+
 // Settings types
 export interface Settings {
   workDir: string | null;

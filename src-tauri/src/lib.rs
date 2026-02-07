@@ -52,6 +52,12 @@ pub fn run() {
             delete_tag,
             push_tag,
             delete_remote_tag,
+            // Remote commands
+            get_remotes,
+            add_remote,
+            remove_remote,
+            rename_remote,
+            set_remote_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

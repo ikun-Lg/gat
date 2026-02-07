@@ -7,13 +7,14 @@ import { BranchSelector } from './BranchSelector';
 import { DiffView } from './DiffView';
 import { StashPanel } from './StashPanel';
 import { TagList } from './TagList';
-import { AlertCircle, Upload, RotateCcw, GitCommit, Download, GitGraph, Clock, FileDiff, Archive, Tag } from 'lucide-react';
+import { AlertCircle, Upload, RotateCcw, GitCommit, Download, GitGraph, Clock, FileDiff, Archive, Tag, Globe } from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { cn } from '../lib/utils';
 import { CommitGraph } from './CommitGraph';
+import { RemoteManagementDialog } from './RemoteManagementDialog';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
@@ -51,6 +52,7 @@ export function RepoView({ repoPath }: RepoViewProps) {
   const [pushError, setPushError] = useState<string | null>(null);
   const [gitUsername, setGitUsername] = useState<string>(savedUsername || '');
   const [showGraph, setShowGraph] = useState(true); // Default to showing graph in history mode
+  const [isRemoteDialogOpen, setIsRemoteDialogOpen] = useState(false);
 
   // Load git username from config if not saved
   useEffect(() => {
@@ -266,6 +268,16 @@ export function RepoView({ repoPath }: RepoViewProps) {
               title="刷新状态"
             >
               <RotateCcw className="w-3.5 h-3.5" />
+            </Button>
+
+            <Button
+              size="sm"
+              variant="ghost" 
+              className="h-6 w-6 p-0"
+              onClick={() => setIsRemoteDialogOpen(true)}
+              title="远程仓库管理"
+            >
+              <Globe className="w-3.5 h-3.5" />
             </Button>
            </div>
         </div>
@@ -514,6 +526,11 @@ export function RepoView({ repoPath }: RepoViewProps) {
         )}
 
       </div>
+      <RemoteManagementDialog 
+        isOpen={isRemoteDialogOpen}
+        onClose={() => setIsRemoteDialogOpen(false)}
+        repoPath={repoPath}
+      />
     </div>
   );
 }

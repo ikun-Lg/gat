@@ -1,4 +1,4 @@
-use crate::domain::{RepositoryInfo, RepoStatus, StatusItem, BranchInfo, CommitInfo, LocalBranch, TagInfo};
+use crate::domain::{RepositoryInfo, RepoStatus, StatusItem, BranchInfo, CommitInfo, LocalBranch, TagInfo, RemoteInfo};
 use crate::error::{AppError, Result};
 use git2::{Repository, StatusOptions};
 use ignore::WalkBuilder;
@@ -488,9 +488,11 @@ fn publish_branch_impl(
     // Get repository config for credential helper
     let config = repo.config()?;
 
-    // Clone the username/password for the callback
-    let auth_username = username.clone();
-    let auth_password = password.clone();
+    // Clone credentials for both push and fetch callbacks
+    let auth_username_push = username.clone();
+    let auth_password_push = password.clone();
+    let auth_username_fetch = username.clone();
+    let auth_password_fetch = password.clone();
 
     // Set up remote callbacks for authentication
     let mut callbacks = git2::RemoteCallbacks::new();
@@ -501,7 +503,7 @@ fn publish_branch_impl(
         let default_username = username_from_url.unwrap_or("git");
 
         // If username and password are provided, use them
-        if let (Some(user), Some(pass)) = (&auth_username, &auth_password) {
+        if let (Some(user), Some(pass)) = (&auth_username_push, &auth_password_push) {
             return git2::Cred::userpass_plaintext(user, pass);
         }
 
@@ -531,8 +533,35 @@ fn publish_branch_impl(
     let mut branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
     branch.set_upstream(Some(&format!("{}/{}", remote, branch_name)))?;
 
-    // Manually update remote-tracking reference
-    update_tracking_branch(repo, remote, branch_name)?;
+    // Fetch to update remote-tracking branch instead of manually updating it
+    // This ensures the remote-tracking branch reflects the actual remote state
+    let config_for_fetch = repo.config()?;
+    let mut fetch_callbacks = git2::RemoteCallbacks::new();
+    fetch_callbacks.credentials(move |url, username_from_url, allowed_types| {
+        let default_username = username_from_url.unwrap_or("git");
+        if let (Some(user), Some(pass)) = (&auth_username_fetch, &auth_password_fetch) {
+            return git2::Cred::userpass_plaintext(user, pass);
+        }
+        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+            git2::Cred::ssh_key_from_agent(default_username)
+        } else if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
+            git2::Cred::credential_helper(&config_for_fetch, url, Some(default_username))
+        } else if allowed_types.contains(git2::CredentialType::DEFAULT) {
+            git2::Cred::credential_helper(&config_for_fetch, url, Some(default_username))
+        } else {
+            Err(git2::Error::from_str("no authentication method available"))
+        }
+    });
+
+    let mut fetch_options = git2::FetchOptions::new();
+    fetch_options.remote_callbacks(fetch_callbacks);
+
+    // Fetch the specific branch to update the remote-tracking reference
+    let fetch_refspec = format!("{}:{}", branch_name, branch_name);
+    if let Err(e) = remote_obj.fetch(&[&fetch_refspec], Some(&mut fetch_options), None) {
+        // If fetch fails (e.g., remote doesn't allow anonymous fetch), log but don't fail the push
+        eprintln!("Warning: Failed to fetch after push: {}", e);
+    }
 
     Ok(())
 }
@@ -567,9 +596,11 @@ fn push_branch_impl(
     // Get repository config for credential helper
     let config = repo.config()?;
 
-    // Clone the username/password for the callback
-    let auth_username = username.clone();
-    let auth_password = password.clone();
+    // Clone credentials for both push and fetch callbacks
+    let auth_username_push = username.clone();
+    let auth_password_push = password.clone();
+    let auth_username_fetch = username.clone();
+    let auth_password_fetch = password.clone();
 
     // Set up remote callbacks for authentication
     let mut callbacks = git2::RemoteCallbacks::new();
@@ -580,7 +611,7 @@ fn push_branch_impl(
         let default_username = username_from_url.unwrap_or("git");
 
         // If username and password are provided, use them
-        if let (Some(user), Some(pass)) = (&auth_username, &auth_password) {
+        if let (Some(user), Some(pass)) = (&auth_username_push, &auth_password_push) {
             return git2::Cred::userpass_plaintext(user, pass);
         }
 
@@ -606,21 +637,36 @@ fn push_branch_impl(
     // Perform the push
     remote_obj.push(&[&refspec], Some(&mut push_options))?;
 
-    // Manually update remote-tracking reference
-    update_tracking_branch(repo, remote, branch_name)?;
+    // Fetch to update remote-tracking branch instead of manually updating it
+    // This ensures the remote-tracking branch reflects the actual remote state
+    let config_for_fetch = repo.config()?;
+    let mut fetch_callbacks = git2::RemoteCallbacks::new();
+    fetch_callbacks.credentials(move |url, username_from_url, allowed_types| {
+        let default_username = username_from_url.unwrap_or("git");
+        if let (Some(user), Some(pass)) = (&auth_username_fetch, &auth_password_fetch) {
+            return git2::Cred::userpass_plaintext(user, pass);
+        }
+        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+            git2::Cred::ssh_key_from_agent(default_username)
+        } else if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
+            git2::Cred::credential_helper(&config_for_fetch, url, Some(default_username))
+        } else if allowed_types.contains(git2::CredentialType::DEFAULT) {
+            git2::Cred::credential_helper(&config_for_fetch, url, Some(default_username))
+        } else {
+            Err(git2::Error::from_str("no authentication method available"))
+        }
+    });
 
-    Ok(())
-}
+    let mut fetch_options = git2::FetchOptions::new();
+    fetch_options.remote_callbacks(fetch_callbacks);
 
-fn update_tracking_branch(repo: &Repository, remote: &str, branch_name: &str) -> Result<()> {
-    // Get the OID of the local branch
-    let local_branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
-    let oid = local_branch.get().peel_to_commit()?.id();
+    // Fetch the specific branch to update the remote-tracking reference
+    let fetch_refspec = format!("{}:{}", branch_name, branch_name);
+    if let Err(e) = remote_obj.fetch(&[&fetch_refspec], Some(&mut fetch_options), None) {
+        // If fetch fails (e.g., remote doesn't allow anonymous fetch), log but don't fail the push
+        eprintln!("Warning: Failed to fetch after push: {}", e);
+    }
 
-    // Update the remote-tracking branch reference
-    let remote_ref_name = format!("refs/remotes/{}/{}", remote, branch_name);
-    repo.reference(&remote_ref_name, oid, true, "Update remote-tracking branch after push")?;
-    
     Ok(())
 }
 
@@ -1118,5 +1164,63 @@ fn delete_remote_tag_impl(
 
     remote_obj.push(&[&refspec], Some(&mut push_options))?;
 
+    Ok(())
+}
+
+/// Get list of remotes for a repository
+#[tauri::command]
+pub async fn get_remotes(path: String) -> std::result::Result<Vec<RemoteInfo>, String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    get_remotes_impl(&repo).map_err(|e| e.to_string())
+}
+
+fn get_remotes_impl(repo: &Repository) -> Result<Vec<RemoteInfo>> {
+    let remotes = repo.remotes()?;
+    let mut remote_infos = Vec::new();
+
+    for remote_name in remotes.iter() {
+        if let Some(name) = remote_name {
+            if let Ok(remote) = repo.find_remote(name) {
+                remote_infos.push(RemoteInfo {
+                    name: name.to_string(),
+                    url: remote.url().map(|s| s.to_string()),
+                    push_url: remote.pushurl().map(|s| s.to_string()),
+                });
+            }
+        }
+    }
+
+    Ok(remote_infos)
+}
+
+/// Add a new remote
+#[tauri::command]
+pub async fn add_remote(path: String, name: String, url: String) -> std::result::Result<(), String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    repo.remote(&name, &url).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Remove a remote
+#[tauri::command]
+pub async fn remove_remote(path: String, name: String) -> std::result::Result<(), String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    repo.remote_delete(&name).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Rename a remote
+#[tauri::command]
+pub async fn rename_remote(path: String, old_name: String, new_name: String) -> std::result::Result<(), String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    repo.remote_rename(&old_name, &new_name).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Set remote URL
+#[tauri::command]
+pub async fn set_remote_url(path: String, name: String, url: String) -> std::result::Result<(), String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    repo.remote_set_url(&name, &url).map_err(|e| e.to_string())?;
     Ok(())
 }

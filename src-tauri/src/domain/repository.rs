@@ -76,3 +76,11 @@ pub struct TagInfo {
     pub tagger: Option<String>,
     pub date: Option<i64>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteInfo {
+    pub name: String,
+    pub url: Option<String>,
+    pub push_url: Option<String>,
+}
