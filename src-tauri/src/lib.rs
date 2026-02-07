@@ -16,6 +16,7 @@ pub fn run() {
             get_repo_status,
             get_branch_info,
             get_commit_history,
+            get_commit_history_paginated,
             get_local_branches,
             switch_branch,
             publish_branch,

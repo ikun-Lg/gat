@@ -3,7 +3,10 @@
     "allow": [
       "Bash(cargo check:*)",
       "Bash(npm run build:*)",
-      "Bash(rustup target add:*)"
+      "Bash(rustup target add:*)",
+      "Bash(npm install:*)",
+      "Bash(pnpm tauri build:*)",
+      "Bash(pnpm build:*)"
     ]
   }
 }

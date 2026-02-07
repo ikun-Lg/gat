@@ -9,7 +9,8 @@ import { StashPanel } from './StashPanel';
 import { TagList } from './TagList';
 import { ConflictPanel } from './ConflictPanel';
 import { RebasePanel } from './RebasePanel';
-import { AlertCircle, Upload, RotateCcw, GitCommit, Download, GitGraph, Clock, FileDiff, Archive, Tag, Globe, AlertTriangle, GitBranch } from 'lucide-react';
+import { VirtualizedCommitList } from './VirtualizedCommitList';
+import { AlertCircle, Upload, RotateCcw, Download, GitGraph, Clock, FileDiff, Archive, Tag, Globe, AlertTriangle, GitBranch } from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { useState, useEffect } from 'react';
@@ -17,8 +18,6 @@ import { invoke } from '@tauri-apps/api/core';
 import { cn } from '../lib/utils';
 import { CommitGraph } from './CommitGraph';
 import { RemoteManagementDialog } from './RemoteManagementDialog';
-import { formatDistanceToNow } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
 
 interface RepoViewProps {
   repoPath: string;
@@ -38,6 +37,9 @@ export function RepoView({ repoPath }: RepoViewProps) {
     currentStatus,
     commitHistory,
     loadCommitHistory,
+    loadMoreCommits,
+    hasMoreCommits,
+    isLoadingMoreCommits,
     selectedFile,
     selectedFileDiff,
     selectFile,
@@ -517,73 +519,28 @@ export function RepoView({ repoPath }: RepoViewProps) {
                  {showGraph ? '隐藏图表' : '显示图表'}
                </Button>
              </div>
-             
-             <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+
+             <div className="flex-1 overflow-hidden relative">
                 {showGraph && commitHistory.length > 0 && (
                    <CommitGraph commits={commitHistory} rowHeight={56} />
                 )}
-                
-                <div className={cn("divide-y divide-border/40", showGraph && "pl-4")}>
-                   {commitHistory.map((commit) => (
-                      <div 
-                        key={commit.id} 
-                        className={cn(
-                          "relative flex items-center gap-4 px-4 h-[56px] hover:bg-muted/30 transition-colors group",
-                          showGraph && "pl-12" // Additional padding for graph nodes
-                        )}
-                        style={{ paddingLeft: showGraph ? undefined : undefined }} // handled by class
-                      >
-                         <div className={cn(
-                           "flex-1 min-w-0 py-2",
-                           showGraph && "ml-4" // Push text right to avoid graph
-                         )}
-                         style={{ marginLeft: showGraph ? 24 * (Math.max((commit.refs?.length || 0), 1)) : 0 }} 
-                         // Dynamic margin based on graph width? 
-                         // Actually CommitGraph calculates width. We need to align text.
-                         // For now, let's just give a fixed margin or let the graph overlay.
-                         // The graph is absolute positioned. We need to push content.
-                         // A simple way is to use a fixed large padding if graph is on, 
-                         // OR, ask CommitGraph for width?
-                         // For MVP, valid to just use a fixed left padding or ensure graph doesn't overlap text too much.
-                         > 
-                            <div className="flex items-baseline gap-2 mb-0.5">
-                               {commit.refs && commit.refs.length > 0 && (
-                                  <div className="flex items-center gap-1">
-                                    {commit.refs.map(ref => (
-                                      <Badge key={ref} variant="outline" className="h-4 text-[9px] px-1 py-0 border-blue-500/30 text-blue-600 bg-blue-500/5">
-                                        {ref}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                               )}
-                               <span className="text-sm font-medium truncate text-foreground/90">{commit.message}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
-                               <span className="font-mono text-[10px] opacity-70">{commit.shortId}</span>
-                               <span>•</span>
-                               <span>{commit.author}</span>
-                               <span>•</span>
-                               <span>{formatDistanceToNow(new Date(commit.timestamp * 1000), { addSuffix: true, locale: zhCN })}</span>
-                            </div>
-                         </div>
-                         
-                         {/* Actions */}
-                         <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                            {/* Copy ID */}
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => navigator.clipboard.writeText(commit.id)} title="复制 Hash">
-                               <GitCommit className="w-3.5 h-3.5" />
-                            </Button>
-                         </div>
-                      </div>
-                   ))}
-                   
-                   {commitHistory.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-                         <GitGraph className="w-10 h-10 mb-3 opacity-20" />
-                         <p>暂无提交记录</p>
-                      </div>
-                   )}
-                </div>
+
+                {commitHistory.length === 0 ? (
+                   <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                      <GitGraph className="w-10 h-10 mb-3 opacity-20" />
+                      <p>暂无提交记录</p>
+                   </div>
+                ) : (
+                   <VirtualizedCommitList
+                      commits={commitHistory}
+                      rowHeight={56}
+                      showGraph={showGraph}
+                      graphWidth={showGraph ? 80 : 0}
+                      onLoadMore={() => loadMoreCommits(repoPath)}
+                      hasMore={hasMoreCommits}
+                      isLoadingMore={isLoadingMoreCommits}
+                   />
+                )}
              </div>
            </div>
         )}

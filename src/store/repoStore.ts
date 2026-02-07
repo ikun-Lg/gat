@@ -36,6 +36,11 @@ interface RepoStore {
   mergeState: MergeState | null;
   rebaseState: RebaseState | null;
 
+  // Pagination state
+  hasMoreCommits: boolean;
+  isLoadingMoreCommits: boolean;
+  commitsPageSize: number;
+
   // Actions
   setRepositories: (repos: Repository[]) => void;
   selectRepo: (path: string | null) => void;
@@ -50,6 +55,7 @@ interface RepoStore {
   refreshAllRepoStatus: () => Promise<void>;
   loadLocalBranches: (path: string) => Promise<void>;
   loadCommitHistory: (path: string, limit?: number) => Promise<void>;
+  loadMoreCommits: (path: string) => Promise<void>;
   loadStashes: (path: string) => Promise<void>;
   loadTags: (path: string) => Promise<void>;
   loadRemotes: (path: string) => Promise<void>;
@@ -132,6 +138,9 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
   selectedFileDiff: null,
   mergeState: null,
   rebaseState: null,
+  hasMoreCommits: true,
+  isLoadingMoreCommits: false,
+  commitsPageSize: 50,
   
   // Actions
   setRepositories: (repos) => set({ repositories: repos }),
@@ -291,12 +300,38 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
     }
   },
 
-  loadCommitHistory: async (path, limit = 20) => {
+  loadCommitHistory: async (path, limit = 50) => {
     try {
-      const history = await invoke<CommitInfo[]>('get_commit_history', { path, limit });
-      set({ commitHistory: history });
+      const history = await invoke<CommitInfo[]>('get_commit_history_paginated', { path, skip: 0, limit });
+      set({
+        commitHistory: history,
+        hasMoreCommits: history.length === limit,
+      });
     } catch (e) {
       set({ error: String(e) });
+    }
+  },
+
+  loadMoreCommits: async (path) => {
+    const { commitHistory, commitsPageSize, isLoadingMoreCommits } = get();
+    if (isLoadingMoreCommits) return;
+
+    set({ isLoadingMoreCommits: true });
+
+    try {
+      const moreCommits = await invoke<CommitInfo[]>('get_commit_history_paginated', {
+        path,
+        skip: commitHistory.length,
+        limit: commitsPageSize,
+      });
+
+      set((state) => ({
+        commitHistory: [...state.commitHistory, ...moreCommits],
+        hasMoreCommits: moreCommits.length === commitsPageSize,
+        isLoadingMoreCommits: false,
+      }));
+    } catch (e) {
+      set({ error: String(e), isLoadingMoreCommits: false });
     }
   },
 

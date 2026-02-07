@@ -223,14 +223,25 @@ fn get_branch_info_impl(repo: &Repository) -> Result<BranchInfo> {
     })
 }
 
-/// Get commit history for a repository
+/// Get commit history for a repository (legacy, for backwards compatibility)
 #[tauri::command]
 pub async fn get_commit_history(path: String, limit: usize) -> std::result::Result<Vec<CommitInfo>, String> {
     let repo = Repository::open(&path).map_err(|e| e.to_string())?;
-    get_commit_history_impl(&repo, limit).map_err(|e| e.to_string())
+    get_commit_history_impl(&repo, 0, limit).map_err(|e| e.to_string())
 }
 
-fn get_commit_history_impl(repo: &Repository, limit: usize) -> Result<Vec<CommitInfo>> {
+/// Paginated commit history request
+#[tauri::command]
+pub async fn get_commit_history_paginated(
+    path: String,
+    skip: usize,
+    limit: usize,
+) -> std::result::Result<Vec<CommitInfo>, String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    get_commit_history_impl(&repo, skip, limit).map_err(|e| e.to_string())
+}
+
+fn get_commit_history_impl(repo: &Repository, skip: usize, limit: usize) -> Result<Vec<CommitInfo>> {
     let mut revwalk = repo.revwalk()?;
     revwalk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)?;
     
@@ -271,7 +282,12 @@ fn get_commit_history_impl(repo: &Repository, limit: usize) -> Result<Vec<Commit
     }
 
     for (i, oid) in revwalk.enumerate() {
-        if i >= limit {
+        // Skip commits for pagination
+        if i < skip {
+            continue;
+        }
+        // Stop when we've collected enough commits
+        if i >= skip + limit {
             break;
         }
 
