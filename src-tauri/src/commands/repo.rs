@@ -1,4 +1,4 @@
-use crate::domain::{RepositoryInfo, RepoStatus, StatusItem, BranchInfo, CommitInfo, LocalBranch, TagInfo, RemoteInfo, ConflictInfo, MergeState};
+use crate::domain::{RepositoryInfo, RepoStatus, StatusItem, BranchInfo, CommitInfo, LocalBranch, TagInfo, RemoteInfo, ConflictInfo, MergeState, RebaseState, RebaseTodo};
 use crate::error::{AppError, Result};
 use git2::{Repository, StatusOptions};
 use ignore::WalkBuilder;
@@ -358,10 +358,42 @@ pub async fn switch_branch(path: String, branch_name: String) -> std::result::Re
 }
 
 fn switch_branch_impl(repo: &Repository, branch_name: &str) -> Result<()> {
-    let obj = repo.revparse_single(branch_name)?;
-    let tree = obj.peel_to_tree()?;
-    repo.checkout_tree(&tree.as_object(), None)?;
-    repo.set_head(&format!("refs/heads/{}", branch_name))?;
+    // First check if there are any uncommitted changes or conflicts
+    let mut status_opts = StatusOptions::new();
+    status_opts.include_untracked(true);
+    status_opts.recurse_untracked_dirs(true);
+
+    let statuses = repo.statuses(Some(&mut status_opts))?;
+
+    // Check for conflicts
+    for entry in statuses.iter() {
+        if entry.status().is_conflicted() {
+            return Err(AppError::InvalidInput(
+                "Cannot switch branch: you have unresolved conflicts. Please resolve them first.".to_string()
+            ));
+        }
+    }
+
+    // Use git checkout with -f flag to force checkout if needed
+    // This is safer than manually handling tree checkout
+    let workdir = repo.workdir().ok_or(AppError::InvalidInput("No workdir".to_string()))?;
+
+    let output = std::process::Command::new("git")
+        .arg("checkout")
+        .arg(branch_name)
+        .current_dir(workdir)
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        if error.contains("conflict") {
+            return Err(AppError::InvalidInput(
+                format!("切换分支失败：存在未提交的更改或冲突。\n\n请先提交或暂存您的更改，然后重试。\n\n详细信息: {}", error)
+            ));
+        }
+        return Err(AppError::Git(git2::Error::from_str(&error)));
+    }
+
     Ok(())
 }
 
@@ -1563,4 +1595,225 @@ pub async fn write_conflict_file(
 
 fn trim(s: &str) -> &str {
     s.trim().trim_end_matches('\n')
+}
+
+/// Get rebase state
+#[tauri::command]
+pub async fn get_rebase_state(path: String) -> std::result::Result<RebaseState, String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    get_rebase_state_impl(&repo).map_err(|e| e.to_string())
+}
+
+fn get_rebase_state_impl(repo: &Repository) -> Result<RebaseState> {
+    let git_dir = repo.path();
+    let rebase_merge_dir = git_dir.join("rebase-merge");
+    let rebase_apply_dir = git_dir.join("rebase-apply");
+
+    let is_rebase_in_progress = rebase_merge_dir.exists() || rebase_apply_dir.exists();
+
+    if !is_rebase_in_progress {
+        return Ok(RebaseState {
+            is_rebase_in_progress: false,
+            current_branch: None,
+            onto_branch: None,
+            current_step: 0,
+            total_steps: 0,
+            current_commit: None,
+        });
+    }
+
+    // Read rebase state from files
+    let current_branch = if rebase_merge_dir.join("head-name").exists() {
+        std::fs::read_to_string(rebase_merge_dir.join("head-name")).ok().map(|s| s.trim().to_string())
+    } else {
+        None
+    };
+
+    let onto_branch = if rebase_merge_dir.join("onto").exists() {
+        std::fs::read_to_string(rebase_merge_dir.join("onto")).ok()
+            .and_then(|s| git2::Oid::from_str(trim(&s)).ok())
+            .and_then(|oid| repo.find_commit(oid).ok())
+            .and_then(|commit| commit.summary().map(|s| s.to_string()))
+    } else {
+        None
+    };
+
+    let current_step = if rebase_merge_dir.join("msgnum").exists() {
+        std::fs::read_to_string(rebase_merge_dir.join("msgnum")).ok()
+            .and_then(|s| s.trim().parse().ok())
+            .unwrap_or(0)
+    } else {
+        0
+    };
+
+    let total_steps = if rebase_merge_dir.join("end").exists() {
+        std::fs::read_to_string(rebase_merge_dir.join("end")).ok()
+            .and_then(|s| s.trim().parse().ok())
+            .unwrap_or(0)
+    } else {
+        0
+    };
+
+    let current_commit = if rebase_merge_dir.join("current-commit").exists() {
+        std::fs::read_to_string(rebase_merge_dir.join("current-commit")).ok()
+            .map(|s| s.trim().to_string())
+    } else {
+        None
+    };
+
+    Ok(RebaseState {
+        is_rebase_in_progress: true,
+        current_branch,
+        onto_branch,
+        current_step,
+        total_steps,
+        current_commit,
+    })
+}
+
+/// Start an interactive rebase
+#[tauri::command]
+pub async fn start_interactive_rebase(
+    path: String,
+    base_commit: String,
+    commits: Vec<RebaseTodo>,
+) -> std::result::Result<(), String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    start_interactive_rebase_impl(&repo, &base_commit, &commits).map_err(|e| e.to_string())
+}
+
+fn start_interactive_rebase_impl(repo: &Repository, base_commit: &str, commits: &[RebaseTodo]) -> Result<()> {
+    let workdir = repo.workdir().ok_or(AppError::InvalidInput("No workdir".to_string()))?;
+    let git_dir = repo.path();
+
+    // Create rebase-todo file content
+    let todo_content = commits
+        .iter()
+        .map(|todo| {
+            let commit_hash = &todo.commit.id[..7];
+            let message = todo.commit.message.lines().next().unwrap_or("");
+            format!("{} {} {}", todo.command, commit_hash, message)
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    // Use git rebase -i with environment variable to provide the todo list
+    let result = std::process::Command::new("git")
+        .arg("rebase")
+        .arg("-i")
+        .arg(base_commit)
+        .current_dir(workdir)
+        .env("GIT_SEQUENCE_EDITOR", "cat")
+        .output();
+
+    match result {
+        Ok(output) => {
+            if !output.status.success() {
+                let error = String::from_utf8_lossy(&output.stderr);
+                return Err(AppError::Git(git2::Error::from_str(&error)));
+            }
+            Ok(())
+        }
+        Err(e) => Err(AppError::Io(e)),
+    }
+}
+
+/// Continue rebase after resolving conflicts
+#[tauri::command]
+pub async fn continue_rebase(path: String) -> std::result::Result<(), String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    continue_rebase_impl(&repo).map_err(|e| e.to_string())
+}
+
+fn continue_rebase_impl(repo: &Repository) -> Result<()> {
+    let workdir = repo.workdir().ok_or(AppError::InvalidInput("No workdir".to_string()))?;
+
+    let output = std::process::Command::new("git")
+        .arg("rebase")
+        .arg("--continue")
+        .current_dir(workdir)
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::Git(git2::Error::from_str(&error)));
+    }
+
+    Ok(())
+}
+
+/// Skip current commit during rebase
+#[tauri::command]
+pub async fn skip_rebase(path: String) -> std::result::Result<(), String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    skip_rebase_impl(&repo).map_err(|e| e.to_string())
+}
+
+fn skip_rebase_impl(repo: &Repository) -> Result<()> {
+    let workdir = repo.workdir().ok_or(AppError::InvalidInput("No workdir".to_string()))?;
+
+    let output = std::process::Command::new("git")
+        .arg("rebase")
+        .arg("--skip")
+        .current_dir(workdir)
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::Git(git2::Error::from_str(&error)));
+    }
+
+    Ok(())
+}
+
+/// Abort rebase
+#[tauri::command]
+pub async fn abort_rebase(path: String) -> std::result::Result<(), String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    abort_rebase_impl(&repo).map_err(|e| e.to_string())
+}
+
+fn abort_rebase_impl(repo: &Repository) -> Result<()> {
+    let workdir = repo.workdir().ok_or(AppError::InvalidInput("No workdir".to_string()))?;
+
+    let output = std::process::Command::new("git")
+        .arg("rebase")
+        .arg("--abort")
+        .current_dir(workdir)
+        .output()?;
+
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::Git(git2::Error::from_str(&error)));
+    }
+
+    Ok(())
+}
+
+/// Edit commit message during rebase
+#[tauri::command]
+pub async fn amend_rebase_commit(
+    path: String,
+    new_message: String,
+) -> std::result::Result<(), String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    amend_rebase_commit_impl(&repo, &new_message).map_err(|e| e.to_string())
+}
+
+fn amend_rebase_commit_impl(repo: &Repository, new_message: &str) -> Result<()> {
+    let head = repo.head()?;
+    let commit = head.peel_to_commit()?;
+    let signature = repo.signature()?;
+
+    // Amend the last commit
+    repo.commit(
+        Some("HEAD"),
+        &signature,
+        &commit.author(),
+        new_message,
+        &commit.tree()?,
+        &[&commit],
+    )?;
+
+    Ok(())
 }

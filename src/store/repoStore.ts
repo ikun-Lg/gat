@@ -14,6 +14,8 @@ import type {
   RemoteInfo,
   MergeState,
   ConflictResolution,
+  RebaseState,
+  RebaseTodo,
 } from '../types';
 
 interface RepoStore {
@@ -31,6 +33,7 @@ interface RepoStore {
   tags: TagInfo[];
   remotes: RemoteInfo[];
   mergeState: MergeState | null;
+  rebaseState: RebaseState | null;
 
   // Actions
   setRepositories: (repos: Repository[]) => void;
@@ -93,6 +96,14 @@ interface RepoStore {
   abortMerge: (path: string) => Promise<void>;
   completeMerge: (path: string, message?: string) => Promise<void>;
 
+  // Rebase operations
+  getRebaseState: (path: string) => Promise<void>;
+  startInteractiveRebase: (path: string, baseCommit: string, commits: RebaseTodo[]) => Promise<void>;
+  continueRebase: (path: string) => Promise<void>;
+  skipRebase: (path: string) => Promise<void>;
+  abortRebase: (path: string) => Promise<void>;
+  amendRebaseCommit: (path: string, newMessage: string) => Promise<void>;
+
   generateCommitMessage: (repoPath: string, diffContent?: string) => Promise<CommitSuggestion>;
   reviewCode: (repoPath: string, diffContent?: string) => Promise<ReviewResult>;
 
@@ -118,7 +129,8 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
   selectedFile: null,
   selectedFileDiff: null,
   mergeState: null,
-  
+  rebaseState: null,
+
   // Actions
   setRepositories: (repos) => set({ repositories: repos }),
 
@@ -594,6 +606,50 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
     await get().getMergeState(path);
     await get().refreshStatus(path);
     await get().refreshBranchInfo(path);
+    await get().loadCommitHistory(path);
+  },
+
+  // Rebase operations
+  getRebaseState: async (path) => {
+    try {
+      const rebaseState = await invoke<RebaseState>('get_rebase_state', { path });
+      set({ rebaseState });
+    } catch (e) {
+      console.error('Failed to get rebase state:', e);
+      set({ rebaseState: null });
+    }
+  },
+
+  startInteractiveRebase: async (path, baseCommit, commits) => {
+    await invoke('start_interactive_rebase', { path, baseCommit: baseCommit, commits });
+    await get().getRebaseState(path);
+    await get().refreshStatus(path);
+    await get().loadCommitHistory(path);
+  },
+
+  continueRebase: async (path) => {
+    await invoke('continue_rebase', { path });
+    await get().getRebaseState(path);
+    await get().refreshStatus(path);
+    await get().loadCommitHistory(path);
+  },
+
+  skipRebase: async (path) => {
+    await invoke('skip_rebase', { path });
+    await get().getRebaseState(path);
+    await get().refreshStatus(path);
+    await get().loadCommitHistory(path);
+  },
+
+  abortRebase: async (path) => {
+    await invoke('abort_rebase', { path });
+    await get().getRebaseState(path);
+    await get().refreshStatus(path);
+    await get().loadCommitHistory(path);
+  },
+
+  amendRebaseCommit: async (path, newMessage) => {
+    await invoke('amend_rebase_commit', { path, newMessage });
     await get().loadCommitHistory(path);
   },
 }));

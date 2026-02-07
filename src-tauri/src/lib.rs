@@ -34,6 +34,12 @@ pub fn run() {
             abort_merge,
             complete_merge,
             write_conflict_file,
+            get_rebase_state,
+            start_interactive_rebase,
+            continue_rebase,
+            skip_rebase,
+            abort_rebase,
+            amend_rebase_commit,
             // Commit commands
             stage_files,
             unstage_files,

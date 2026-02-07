@@ -8,7 +8,8 @@ import { DiffView } from './DiffView';
 import { StashPanel } from './StashPanel';
 import { TagList } from './TagList';
 import { ConflictPanel } from './ConflictPanel';
-import { AlertCircle, Upload, RotateCcw, GitCommit, Download, GitGraph, Clock, FileDiff, Archive, Tag, Globe, AlertTriangle } from 'lucide-react';
+import { RebasePanel } from './RebasePanel';
+import { AlertCircle, Upload, RotateCcw, GitCommit, Download, GitGraph, Clock, FileDiff, Archive, Tag, Globe, AlertTriangle, GitBranch } from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { useState, useEffect } from 'react';
@@ -23,7 +24,7 @@ interface RepoViewProps {
   repoPath: string;
 }
 
-type ViewMode = 'changes' | 'history' | 'stashes' | 'tags' | 'conflicts';
+type ViewMode = 'changes' | 'history' | 'stashes' | 'tags' | 'conflicts' | 'rebase';
 
 export function RepoView({ repoPath }: RepoViewProps) {
   const {
@@ -41,7 +42,9 @@ export function RepoView({ repoPath }: RepoViewProps) {
     selectedFileDiff,
     selectFile,
     mergeState,
-    getMergeState
+    getMergeState,
+    rebaseState,
+    getRebaseState: checkRebaseState
   } = useRepoStore();
   const { gitUsername: savedUsername, gitPassword } = useSettingsStore();
 
@@ -60,6 +63,7 @@ export function RepoView({ repoPath }: RepoViewProps) {
   // Auto-check for conflicts after pull/merge operations
   useEffect(() => {
     getMergeState(repoPath);
+    checkRebaseState(repoPath);
   }, [repoPath]);
 
   // Auto-switch to conflicts view when merge is detected
@@ -68,6 +72,13 @@ export function RepoView({ repoPath }: RepoViewProps) {
       setViewMode('conflicts');
     }
   }, [mergeState?.isMergeInProgress]);
+
+  // Auto-switch to rebase view when rebase is detected
+  useEffect(() => {
+    if (rebaseState?.isRebaseInProgress && viewMode !== 'rebase') {
+      setViewMode('rebase');
+    }
+  }, [rebaseState?.isRebaseInProgress]);
 
   // Load git username from config if not saved
   useEffect(() => {
@@ -482,7 +493,19 @@ export function RepoView({ repoPath }: RepoViewProps) {
         {viewMode === 'history' && (
            <div className="absolute inset-0 flex flex-col animate-in fade-in zoom-in-95 duration-200">
              <div className="shrink-0 border-b bg-muted/30 px-4 py-2 flex items-center justify-between">
-               <div className="text-sm font-medium text-muted-foreground">提交历史</div>
+               <div className="flex items-center gap-3">
+                 <div className="text-sm font-medium text-muted-foreground">提交历史</div>
+                 {commitHistory.length > 1 && (
+                   <Button
+                     variant="outline"
+                     className="h-6 gap-1.5 text-xs text-purple-600 border-purple-500/30 hover:bg-purple-500/5"
+                     onClick={() => setViewMode('rebase')}
+                   >
+                     <GitBranch className="w-3.5 h-3.5" />
+                     交互式 Rebase
+                   </Button>
+                 )}
+               </div>
                <Button
                  size="sm"
                  variant={showGraph ? "secondary" : "ghost"}
@@ -584,6 +607,23 @@ export function RepoView({ repoPath }: RepoViewProps) {
              <ConflictPanel repoPath={repoPath} onResolve={() => {
                setViewMode('changes');
              }} />
+           </div>
+        )}
+
+        {/* Rebase View */}
+        {viewMode === 'rebase' && (
+           <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
+             <RebasePanel
+               repoPath={repoPath}
+               commits={commitHistory}
+               onClose={() => {
+                 setViewMode('history');
+               }}
+               onComplete={() => {
+                 setViewMode('history');
+                 loadCommitHistory(repoPath);
+               }}
+             />
            </div>
         )}
 

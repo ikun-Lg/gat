@@ -50,6 +50,25 @@ export interface MergeState {
 
 export type ConflictResolution = "current" | "incoming" | "ancestor" | "manual";
 
+// Rebase types
+export type RebaseCommand = "pick" | "reword" | "edit" | "squash" | "fixup" | "drop";
+
+export interface RebaseTodo {
+  id: string;
+  command: RebaseCommand;
+  commit: CommitInfo;
+  newMessage?: string;
+}
+
+export interface RebaseState {
+  isRebaseInProgress: boolean;
+  currentBranch: string | null;
+  ontoBranch: string | null;
+  currentStep: number;
+  totalSteps: number;
+  currentCommit: string | null;
+}
+
 export interface BranchInfo {
   current: string;
   ahead: number;

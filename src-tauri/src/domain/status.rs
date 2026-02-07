@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use super::repository::CommitInfo;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -156,4 +157,26 @@ pub struct MergeState {
     pub is_merge_in_progress: bool,
     pub conflict_count: usize,
     pub conflicted_files: Vec<ConflictInfo>,
+}
+
+/// Rebase todo item
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RebaseTodo {
+    pub id: String,
+    pub command: String,
+    pub commit: CommitInfo,
+    pub new_message: Option<String>,
+}
+
+/// Rebase state information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RebaseState {
+    pub is_rebase_in_progress: bool,
+    pub current_branch: Option<String>,
+    pub onto_branch: Option<String>,
+    pub current_step: usize,
+    pub total_steps: usize,
+    pub current_commit: Option<String>,
 }

@@ -62,8 +62,23 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
     try {
       await switchBranch(repoPath, branchName);
       setIsOpen(false);
+      setErrorMessage(null);
     } catch (e) {
+      const errorStr = String(e);
       console.error('切换分支失败:', e);
+
+      // Check if it's a conflict error
+      if (errorStr.includes('conflict') || errorStr.includes('冲突') || errorStr.includes('uncommitted')) {
+        setErrorMessage(
+          '切换分支失败：存在未提交的更改或冲突。\n\n' +
+          '请先：\n' +
+          '1. 提交您的更改，或\n' +
+          '2. 使用贮存(Stash)保存更改\n\n' +
+          '然后重试。'
+        );
+      } else {
+        setErrorMessage(`切换分支失败: ${errorStr}`);
+      }
     }
   };
 
@@ -276,6 +291,19 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
                 </div>
               ))}
             </div>
+
+            {/* Error Message */}
+            {errorMessage && (
+              <div className="mx-2 mb-2 p-2 bg-destructive/10 border border-destructive/30 rounded-lg">
+                <p className="text-xs text-destructive whitespace-pre-line">{errorMessage}</p>
+                <button
+                  onClick={() => setErrorMessage(null)}
+                  className="mt-1 text-xs text-destructive/70 hover:text-destructive underline"
+                >
+                  关闭
+                </button>
+              </div>
+            )}
 
             {/* Context Menu Portal (Simplified as overflow-visible container) */}
             {contextMenu && (
