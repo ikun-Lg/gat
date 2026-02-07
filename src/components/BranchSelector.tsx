@@ -14,6 +14,7 @@ interface AuthDialogProps {
   repoPath: string;
   onSubmit: (username: string, password: string) => void;
   onCancel: () => void;
+  title: string;
 }
 
 const STORE_PATH = 'git_credentials.json';
@@ -34,7 +35,7 @@ async function loadCredential(repoPath: string): Promise<{ username: string; pas
   return cred || null;
 }
 
-function AuthDialog({ repoPath, onSubmit, onCancel }: AuthDialogProps) {
+function AuthDialog({ repoPath, onSubmit, onCancel, title }: AuthDialogProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -68,9 +69,9 @@ function AuthDialog({ repoPath, onSubmit, onCancel }: AuthDialogProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <Card className="w-80 p-4">
-        <h3 className="text-lg font-semibold mb-4">身份验证</h3>
+        <h3 className="text-lg font-semibold mb-4">{title}</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          请输入您的 Git 凭据以发布分支
+          请输入您的 Git 凭据
         </p>
         <form onSubmit={handleSubmit}>
           <div className="space-y-3">
@@ -135,14 +136,17 @@ function AuthDialog({ repoPath, onSubmit, onCancel }: AuthDialogProps) {
 }
 
 export function BranchSelector({ repoPath }: BranchSelectorProps) {
-  const { currentBranchInfo, localBranches, switchBranch, publishBranch, loadLocalBranches, refreshBranchInfo } = useRepoStore();
+  const { currentBranchInfo, localBranches, switchBranch, publishBranch, pushBranch, loadLocalBranches, refreshBranchInfo } = useRepoStore();
   const [isOpen, setIsOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [authDialogTitle, setAuthDialogTitle] = useState('身份验证');
+  const [authAction, setAuthAction] = useState<'publish' | 'push'>('publish');
 
   const currentBranch = currentBranchInfo?.current || '';
   const isPublished = currentBranchInfo?.isPublished ?? false;
+  const needPush = currentBranchInfo?.needPush ?? false;
 
   const handleSwitchBranch = async (branchName: string) => {
     try {
@@ -154,23 +158,35 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
   };
 
   const handlePublish = () => {
-    // 直接显示身份验证对话框
     setErrorMessage(null);
+    setAuthAction('publish');
+    setAuthDialogTitle('发布分支');
     setShowAuthDialog(true);
   };
 
-  const handlePublishWithAuth = async (username: string, password: string) => {
+  const handlePush = () => {
+    setErrorMessage(null);
+    setAuthAction('push');
+    setAuthDialogTitle('推送提交');
+    setShowAuthDialog(true);
+  };
+
+  const handleAuthSubmit = async (username: string, password: string) => {
     setShowAuthDialog(false);
     setIsPublishing(true);
     setErrorMessage(null);
     try {
-      await publishBranch(repoPath, currentBranch, 'origin', username, password);
+      if (authAction === 'publish') {
+        await publishBranch(repoPath, currentBranch, 'origin', username, password);
+      } else {
+        await pushBranch(repoPath, currentBranch, 'origin', username, password);
+      }
       // 刷新分支信息
       await refreshBranchInfo(repoPath);
-      // 发布成功，关闭下拉菜单
+      // 操作成功，关闭下拉菜单
       setIsOpen(false);
     } catch (e) {
-      console.error('发布分支失败:', e);
+      console.error(authAction === 'publish' ? '发布分支失败:' : '推送失败:', e);
       setErrorMessage(String(e));
     } finally {
       setIsPublishing(false);
@@ -193,6 +209,9 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
       >
         <GitBranch className="w-4 h-4" />
         <span>{currentBranch}</span>
+        {needPush && currentBranch && (
+          <span className="text-xs text-amber-500">↑{currentBranchInfo?.ahead || 0}</span>
+        )}
         {!isPublished && currentBranch && (
           <span className="text-xs text-muted-foreground">(未发布)</span>
         )}
@@ -201,8 +220,9 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
       {showAuthDialog && (
         <AuthDialog
           repoPath={repoPath}
-          onSubmit={handlePublishWithAuth}
+          onSubmit={handleAuthSubmit}
           onCancel={() => setShowAuthDialog(false)}
+          title={authDialogTitle}
         />
       )}
 
@@ -233,23 +253,41 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
               ))}
             </div>
 
-            {!isPublished && currentBranch && (
-              <div className="border-t p-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handlePublish();
-                  }}
-                  disabled={isPublishing}
-                >
-                  <Cloud className="w-4 h-4 mr-2" />
-                  {isPublishing ? '发布中...' : '发布分支'}
-                </Button>
+            {/* 操作按钮区域 */}
+            {(needPush || !isPublished) && currentBranch && (
+              <div className="border-t p-2 space-y-2">
+                {needPush && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePush();
+                    }}
+                    disabled={isPublishing}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {isPublishing && authAction === 'push' ? '推送中...' : `推送提交 (${currentBranchInfo?.ahead || 0})`}
+                  </Button>
+                )}
+                {!isPublished && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePublish();
+                    }}
+                    disabled={isPublishing}
+                  >
+                    <Cloud className="w-4 h-4 mr-2" />
+                    {isPublishing && authAction === 'publish' ? '发布中...' : '发布分支'}
+                  </Button>
+                )}
                 {errorMessage && (
-                  <p className="text-xs text-red-500 mt-2">{errorMessage}</p>
+                  <p className="text-xs text-red-500">{errorMessage}</p>
                 )}
               </div>
             )}
