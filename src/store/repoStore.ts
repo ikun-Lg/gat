@@ -33,6 +33,7 @@ interface RepoStore {
   scanRepositories: (rootPath: string) => Promise<void>;
   refreshStatus: (path: string) => Promise<void>;
   refreshBranchInfo: (path: string) => Promise<void>;
+  refreshAllRepoStatus: () => Promise<void>;
   loadLocalBranches: (path: string) => Promise<void>;
   loadCommitHistory: (path: string, limit?: number) => Promise<void>;
 
@@ -151,6 +152,42 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
       }
     } catch (e) {
       console.error('Failed to refresh branch info:', e);
+    }
+  },
+
+  refreshAllRepoStatus: async () => {
+    const { repositories } = get();
+    // We could use Promise.all here, but to avoid overwhelming the system/git
+    // we do them sequentially or in small batches. For now, sequential is fine.
+    for (const repo of repositories) {
+      try {
+        const status = await invoke<RepoStatus>('get_repo_status', { path: repo.path });
+        const branchInfo = await invoke<BranchInfo>('get_branch_info', { path: repo.path });
+        
+        const updatedRepo = {
+          ...repo,
+          hasChanges: status.staged.length > 0 || status.unstaged.length > 0 || status.untracked.length > 0,
+          stagedCount: status.staged.length,
+          unstagedCount: status.unstaged.length,
+          untrackedCount: status.untracked.length,
+          branch: branchInfo.current,
+          ahead: branchInfo.ahead,
+          behind: branchInfo.behind,
+        };
+
+        set((state) => ({
+          repositories: state.repositories.map((r) =>
+            r.path === repo.path ? updatedRepo : r
+          ),
+          // If this is the currently selected repo, also update currentStatus and branchInfo
+          ...(state.selectedRepoPath === repo.path ? { 
+            currentStatus: status,
+            currentBranchInfo: branchInfo
+          } : {})
+        }));
+      } catch (e) {
+        console.error(`Failed to refresh status for ${repo.path}:`, e);
+      }
     }
   },
 

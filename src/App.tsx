@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useRepoStore } from './store/repoStore';
 import { useSettingsStore } from './store/settingsStore';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { UnlistenFn } from '@tauri-apps/api/event';
 import { RepoList } from './components/RepoList';
 import { RepoView } from './components/RepoView';
 import { WelcomeDialog } from './components/WelcomeDialog';
@@ -21,6 +23,41 @@ function App() {
       scanRepositories(workDir);
     }
   }, [workDir, scanRepositories]);
+
+  // 自动刷新逻辑
+  useEffect(() => {
+    const { refreshStatus, refreshBranchInfo, refreshAllRepoStatus } = useRepoStore.getState();
+
+    // 1. 窗口聚焦时刷新
+    const unlistenPromise = getCurrentWindow().listen('tauri://focus', () => {
+      const currentSelected = useRepoStore.getState().selectedRepoPath;
+      if (currentSelected) {
+        refreshStatus(currentSelected);
+        refreshBranchInfo(currentSelected);
+      }
+      refreshAllRepoStatus();
+    });
+
+    // 2. 定时轮询
+    // 每 10 秒刷新当前选中的仓库状态
+    const statusInterval = setInterval(() => {
+      const currentSelected = useRepoStore.getState().selectedRepoPath;
+      if (currentSelected) {
+        useRepoStore.getState().refreshStatus(currentSelected);
+      }
+    }, 10000);
+
+    // 每 30 秒刷新所有仓库状态（更新左侧列表的变更图标）
+    const allReposInterval = setInterval(() => {
+      useRepoStore.getState().refreshAllRepoStatus();
+    }, 30000);
+
+    return () => {
+      unlistenPromise.then((unlisten: UnlistenFn) => unlisten());
+      clearInterval(statusInterval);
+      clearInterval(allReposInterval);
+    };
+  }, []); // 仅在组件挂载时运行一次监听器设置
 
   const handleWorkDirSelected = (dir: string) => {
     setWorkDir(dir);
