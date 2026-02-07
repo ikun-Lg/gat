@@ -10,7 +10,8 @@ import { TagList } from './TagList';
 import { ConflictPanel } from './ConflictPanel';
 import { RebasePanel } from './RebasePanel';
 import { VirtualizedCommitList } from './VirtualizedCommitList';
-import { AlertCircle, Upload, RotateCcw, Download, GitGraph, Clock, FileDiff, Archive, Tag, Globe, AlertTriangle, GitBranch } from 'lucide-react';
+import { ShortcutHelp } from './ShortcutHelp';
+import { AlertCircle, Upload, RotateCcw, Download, GitGraph, Clock, FileDiff, Archive, Tag, Globe, AlertTriangle, GitBranch, Keyboard } from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { useState, useEffect } from 'react';
@@ -18,6 +19,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { cn } from '../lib/utils';
 import { CommitGraph } from './CommitGraph';
 import { RemoteManagementDialog } from './RemoteManagementDialog';
+import { shortcutManager } from '../lib/shortcuts';
 
 interface RepoViewProps {
   repoPath: string;
@@ -103,6 +105,66 @@ export function RepoView({ repoPath }: RepoViewProps) {
       selectFile(repoPath, null);
     }
   }, [viewMode, repoPath, loadCommitHistory, selectFile]);
+
+  // Register keyboard shortcuts
+  useEffect(() => {
+    const stageAll = useRepoStore.getState().stageAll;
+    const unstageAll = useRepoStore.getState().unstageAll;
+    const stashSave = useRepoStore.getState().stashSave;
+
+    const unregister = shortcutManager.registerAll([
+      {
+        key: 'a',
+        ctrlKey: true,
+        shiftKey: true,
+        description: '全部暂存',
+        enabled: () => viewMode === 'changes',
+        action: () => stageAll(repoPath),
+      },
+      {
+        key: 'a',
+        ctrlKey: true,
+        altKey: true,
+        description: '全部取消暂存',
+        enabled: () => viewMode === 'changes',
+        action: () => unstageAll(repoPath),
+      },
+      {
+        key: 'r',
+        ctrlKey: true,
+        description: '刷新',
+        action: () => refreshBranchInfo(repoPath),
+      },
+      {
+        key: 's',
+        ctrlKey: true,
+        description: '贮存',
+        enabled: () => viewMode === 'changes',
+        action: () => stashSave(repoPath),
+      },
+      {
+        key: 'h',
+        ctrlKey: true,
+        description: '历史视图',
+        action: () => setViewMode('history'),
+      },
+      {
+        key: '1',
+        ctrlKey: true,
+        description: '变更视图',
+        action: () => setViewMode('changes'),
+      },
+      {
+        key: '?',
+        description: '快捷键帮助',
+        action: () => setShowShortcutHelp(true),
+      },
+    ]);
+
+    return () => unregister();
+  }, [repoPath, viewMode]);
+
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
 
   if (!repo) return null;
 
@@ -586,11 +648,24 @@ export function RepoView({ repoPath }: RepoViewProps) {
         )}
 
       </div>
-      <RemoteManagementDialog 
+      <RemoteManagementDialog
         isOpen={isRemoteDialogOpen}
         onClose={() => setIsRemoteDialogOpen(false)}
         repoPath={repoPath}
       />
+      <ShortcutHelp
+        isOpen={showShortcutHelp}
+        onClose={() => setShowShortcutHelp(false)}
+      />
+
+      {/* Floating shortcut help button */}
+      <button
+        onClick={() => setShowShortcutHelp(true)}
+        className="fixed bottom-6 right-6 w-10 h-10 rounded-full bg-primary/10 hover:bg-primary/20 text-primary flex items-center justify-center transition-colors shadow-lg border border-primary/20"
+        title="快捷键帮助 (?)"
+      >
+        <Keyboard className="w-5 h-5" />
+      </button>
     </div>
   );
 }

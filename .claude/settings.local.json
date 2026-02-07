@@ -6,7 +6,8 @@
       "Bash(rustup target add:*)",
       "Bash(npm install:*)",
       "Bash(pnpm tauri build:*)",
-      "Bash(pnpm build:*)"
+      "Bash(pnpm build:*)",
+      "Bash(pnpm add:*)"
     ]
   }
 }
