@@ -3,6 +3,7 @@ import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';
 import { GitBranch } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 interface CreateBranchDialogProps {
   isOpen: boolean;
@@ -13,13 +14,17 @@ interface CreateBranchDialogProps {
 
 export function CreateBranchDialog({ isOpen, baseBranch, onClose, onCreate }: CreateBranchDialogProps) {
   const [branchName, setBranchName] = useState('');
+  const [prefix, setPrefix] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const prefixes = ['feature/', 'fix/', 'hotfix/', 'release/', 'chore/'];
+
   useEffect(() => {
     if (isOpen) {
       setBranchName('');
+      setPrefix(null);
       setError(null);
       // Focus input after a short delay to allow rendering
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -37,8 +42,10 @@ export function CreateBranchDialog({ isOpen, baseBranch, onClose, onCreate }: Cr
     setIsCreating(true);
     setError(null);
 
+    const finalName = prefix ? `${prefix}${branchName.trim()}` : branchName.trim();
+
     try {
-      await onCreate(branchName.trim());
+      await onCreate(finalName);
       onClose();
     } catch (err) {
       setError(String(err));
@@ -64,19 +71,51 @@ export function CreateBranchDialog({ isOpen, baseBranch, onClose, onCreate }: Cr
             基于 <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-foreground">{baseBranch}</span> 创建新分支
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Input
-                ref={inputRef}
-                value={branchName}
-                onChange={(e) => {
-                  setBranchName(e.target.value);
-                  if (error) setError(null);
-                }}
-                placeholder="输入新分支名称..."
-                className="h-10 bg-background/50"
-                disabled={isCreating}
-              />
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-1.5">
+                {prefixes.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPrefix(prefix === p ? null : p)}
+                    className={cn(
+                      "px-2 py-1 text-[10px] uppercase font-bold tracking-wider rounded-md transition-all border",
+                      prefix === p 
+                        ? "bg-primary border-primary text-primary-foreground shadow-sm" 
+                        : "bg-muted/50 border-border/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    {p.replace('/', '')}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative group">
+                {prefix && (
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                    <span className="text-sm font-medium text-primary/70 select-none">{prefix}</span>
+                  </div>
+                )}
+                <Input
+                  ref={inputRef}
+                  value={branchName}
+                  onChange={(e) => {
+                    setBranchName(e.target.value);
+                    if (error) setError(null);
+                  }}
+                  placeholder="输入新分支名称..."
+                  className={cn(
+                    "h-10 bg-background/50 transition-all",
+                    prefix && "pl-[var(--prefix-width)]"
+                  )}
+                  style={{ 
+                    paddingLeft: prefix ? `${prefix.length * 8 + 16}px` : undefined 
+                  } as any}
+                  disabled={isCreating}
+                />
+              </div>
+              
               {error && (
                 <p className="text-xs text-destructive font-medium animate-in slide-in-from-top-1">
                   {error}
