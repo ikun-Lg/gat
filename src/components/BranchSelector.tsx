@@ -8,10 +8,83 @@ interface BranchSelectorProps {
   repoPath: string;
 }
 
+interface AuthDialogProps {
+  onSubmit: (username: string, password: string) => void;
+  onCancel: () => void;
+}
+
+function AuthDialog({ onSubmit, onCancel }: AuthDialogProps) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(username, password);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <Card className="w-80 p-4">
+        <h3 className="text-lg font-semibold mb-4">身份验证</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          请输入您的 Git 凭据以发布分支
+        </p>
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">用户名</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+                placeholder="git"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">密码 / Token</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border rounded-md"
+                placeholder="Personal Access Token"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              对于 GitHub，请使用 Personal Access Token 而非账户密码
+            </p>
+          </div>
+          <div className="flex gap-2 mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={onCancel}
+            >
+              取消
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1"
+              disabled={!username || !password}
+            >
+              确认
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  );
+}
+
 export function BranchSelector({ repoPath }: BranchSelectorProps) {
   const { currentBranchInfo, localBranches, switchBranch, publishBranch, loadLocalBranches } = useRepoStore();
   const [isOpen, setIsOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const currentBranch = currentBranchInfo?.current || '';
   const isPublished = currentBranchInfo?.isPublished ?? false;
@@ -27,10 +100,33 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
 
   const handlePublish = async () => {
     setIsPublishing(true);
+    setErrorMessage(null);
     try {
       await publishBranch(repoPath, currentBranch);
     } catch (e) {
+      const error = String(e);
+      console.error('发布分支失败:', error);
+
+      // Check if error is related to authentication
+      if (error.includes('auth') || error.includes('credential')) {
+        setShowAuthDialog(true);
+      } else {
+        setErrorMessage(error);
+      }
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handlePublishWithAuth = async (username: string, password: string) => {
+    setShowAuthDialog(false);
+    setIsPublishing(true);
+    setErrorMessage(null);
+    try {
+      await publishBranch(repoPath, currentBranch, 'origin', username, password);
+    } catch (e) {
       console.error('发布分支失败:', e);
+      setErrorMessage(String(e));
     } finally {
       setIsPublishing(false);
     }
@@ -39,6 +135,7 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
   const handleOpen = () => {
     loadLocalBranches(repoPath);
     setIsOpen(true);
+    setErrorMessage(null);
   };
 
   return (
@@ -55,6 +152,13 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
           <span className="text-xs text-muted-foreground">(未发布)</span>
         )}
       </Button>
+
+      {showAuthDialog && (
+        <AuthDialog
+          onSubmit={handlePublishWithAuth}
+          onCancel={() => setShowAuthDialog(false)}
+        />
+      )}
 
       {isOpen && (
         <>
@@ -98,6 +202,9 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
                   <Cloud className="w-4 h-4 mr-2" />
                   {isPublishing ? '发布中...' : '发布分支'}
                 </Button>
+                {errorMessage && (
+                  <p className="text-xs text-red-500 mt-2">{errorMessage}</p>
+                )}
               </div>
             )}
           </Card>

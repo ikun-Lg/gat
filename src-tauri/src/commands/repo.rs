@@ -324,12 +324,20 @@ pub async fn publish_branch(
     path: String,
     branch_name: String,
     remote: String,
+    username: Option<String>,
+    password: Option<String>,
 ) -> std::result::Result<(), String> {
     let repo = Repository::open(&path).map_err(|e| e.to_string())?;
-    publish_branch_impl(&repo, &branch_name, &remote).map_err(|e| e.to_string())
+    publish_branch_impl(&repo, &branch_name, &remote, username, password).map_err(|e| e.to_string())
 }
 
-fn publish_branch_impl(repo: &Repository, branch_name: &str, remote: &str) -> Result<()> {
+fn publish_branch_impl(
+    repo: &Repository,
+    branch_name: &str,
+    remote: &str,
+    username: Option<String>,
+    password: Option<String>,
+) -> Result<()> {
     // Find the remote
     let mut remote_obj = repo.find_remote(remote)
         .map_err(|_| AppError::InvalidInput(format!("Remote '{}' not found", remote)))?;
@@ -340,24 +348,33 @@ fn publish_branch_impl(repo: &Repository, branch_name: &str, remote: &str) -> Re
     // Get repository config for credential helper
     let config = repo.config()?;
 
+    // Clone the username/password for the callback
+    let auth_username = username.clone();
+    let auth_password = password.clone();
+
     // Set up remote callbacks for authentication
     let mut callbacks = git2::RemoteCallbacks::new();
 
     // Handle credentials for SSH/HTTPS
     callbacks.credentials(move |url, username_from_url, allowed_types| {
         // Get username from URL or default to "git"
-        let username = username_from_url.unwrap_or("git");
+        let default_username = username_from_url.unwrap_or("git");
+
+        // If username and password are provided, use them
+        if let (Some(user), Some(pass)) = (&auth_username, &auth_password) {
+            return git2::Cred::userpass_plaintext(user, pass);
+        }
 
         // Try different authentication methods based on what's allowed
         if allowed_types.contains(git2::CredentialType::SSH_KEY) {
             // Try SSH agent first for SSH URLs
-            git2::Cred::ssh_key_from_agent(username)
+            git2::Cred::ssh_key_from_agent(default_username)
         } else if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
             // For HTTPS, try to use git-credential-helper
-            git2::Cred::credential_helper(&config, url, Some(username))
+            git2::Cred::credential_helper(&config, url, Some(default_username))
         } else if allowed_types.contains(git2::CredentialType::DEFAULT) {
             // Try default credential helper
-            git2::Cred::credential_helper(&config, url, Some(username))
+            git2::Cred::credential_helper(&config, url, Some(default_username))
         } else {
             Err(git2::Error::from_str("no authentication method available"))
         }

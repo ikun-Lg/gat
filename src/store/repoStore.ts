@@ -46,7 +46,7 @@ interface RepoStore {
   batchCommit: (repoPaths: string[], message: string) => Promise<BatchCommitResult>;
 
   switchBranch: (path: string, branchName: string) => Promise<void>;
-  publishBranch: (path: string, branchName: string, remote?: string) => Promise<void>;
+  publishBranch: (path: string, branchName: string, remote?: string, username?: string, password?: string) => Promise<void>;
 
   generateCommitMessage: (repoPath: string, diffContent?: string) => Promise<CommitSuggestion>;
 }
@@ -221,8 +221,8 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
     await get().loadLocalBranches(path);
   },
 
-  publishBranch: async (path, branchName, remote = 'origin') => {
-    await invoke('publish_branch', { path, branchName, remote });
+  publishBranch: async (path, branchName, remote = 'origin', username?: string, password?: string) => {
+    await invoke('publish_branch', { path, branchName, remote, username, password });
     await get().refreshBranchInfo(path);
     await get().loadLocalBranches(path);
   },
