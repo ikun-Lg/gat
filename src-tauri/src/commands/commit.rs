@@ -84,6 +84,53 @@ pub async fn unstage_all(path: String) -> std::result::Result<(), String> {
     Ok(())
 }
 
+/// Discard changes for specific files
+#[tauri::command]
+pub async fn discard_files(path: String, files: Vec<String>) -> std::result::Result<(), String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    discard_files_impl(&repo, &files).map_err(|e| e.to_string())
+}
+
+fn discard_files_impl(repo: &Repository, files: &[String]) -> Result<()> {
+    let workdir = repo.workdir().ok_or(AppError::InvalidInput("No workdir".to_string()))?;
+
+    for file in files {
+        let file_path = workdir.join(file);
+
+        // Check if file exists in working directory
+        if file_path.exists() {
+            // File exists - restore from index or HEAD
+            // Use git checkout to restore the file
+            let output = std::process::Command::new("git")
+                .arg("checkout")
+                .arg("--")
+                .arg(file)
+                .current_dir(workdir)
+                .output()?;
+
+            if !output.status.success() {
+                // If checkout fails, try to remove the file (for new untracked files)
+                let _ = std::fs::remove_file(&file_path);
+            }
+        } else {
+            // File doesn't exist in working directory
+            // It might have been deleted - restore it from HEAD
+            let output = std::process::Command::new("git")
+                .arg("checkout")
+                .arg("--")
+                .arg(file)
+                .current_dir(workdir)
+                .output()?;
+
+            if !output.status.success() {
+                return Err(AppError::InvalidInput(format!("Failed to restore file: {}", file)));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Apply a patch to the index (stage selected changes)
 #[tauri::command]
 pub async fn apply_patch(path: String, patch: String) -> std::result::Result<(), String> {

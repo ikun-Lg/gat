@@ -63,6 +63,7 @@ interface RepoStore {
   // Git operations
   stageFile: (repoPath: string, filePath: string) => Promise<void>;
   unstageFile: (repoPath: string, filePath: string) => Promise<void>;
+  discardFile: (repoPath: string, filePath: string) => Promise<void>;
   stageAll: (repoPath: string) => Promise<void>;
   unstageAll: (repoPath: string) => Promise<void>;
 
@@ -343,6 +344,16 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
 
   unstageFile: async (repoPath, filePath) => {
     await invoke('unstage_files', { path: repoPath, files: [filePath] });
+    await get().refreshStatus(repoPath);
+  },
+
+  discardFile: async (repoPath, filePath) => {
+    await invoke('discard_files', { path: repoPath, files: [filePath] });
+    // Clear selected file if it was the discarded one
+    const { selectedFile } = get();
+    if (selectedFile === filePath) {
+      set({ selectedFile: null, selectedFileDiff: null });
+    }
     await get().refreshStatus(repoPath);
   },
 

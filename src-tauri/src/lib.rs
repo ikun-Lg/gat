@@ -46,6 +46,7 @@ pub fn run() {
             unstage_files,
             stage_all,
             unstage_all,
+            discard_files,
             apply_patch,
             commit,
             revoke_latest_commit,

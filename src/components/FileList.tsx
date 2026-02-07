@@ -1,6 +1,6 @@
 import { useRepoStore } from '../store/repoStore';
 import { Button } from './ui/Button';
-import { Plus, Minus, File, FilePlus, FileMinus, FileEdit, GitBranch, AlertTriangle } from 'lucide-react';
+import { Plus, Minus, File, FilePlus, FileMinus, FileEdit, GitBranch, AlertTriangle, Trash2 } from 'lucide-react';
 import type { FileStatus, StatusItem } from '../types';
 
 interface FileListProps {
@@ -12,8 +12,10 @@ interface FileSectionProps {
   files: StatusItem[];
   onStageFile: (file: string) => void;
   onUnstageFile: (file: string) => void;
+  onDiscardFile?: (file: string) => void;
   stageLabel: string;
   unstageLabel: string;
+  discardLabel?: string;
   icon: React.ReactNode;
   selectedFile: string | null;
   onSelectFile: (file: string) => void;
@@ -24,8 +26,10 @@ function FileSection({
   files,
   onStageFile,
   onUnstageFile,
+  onDiscardFile,
   stageLabel,
   unstageLabel,
+  discardLabel,
   icon,
   selectedFile,
   onSelectFile,
@@ -79,6 +83,17 @@ function FileSection({
                   <Minus className="w-3.5 h-3.5" />
                 </Button>
               )}
+              {onDiscardFile && discardLabel && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="w-6 h-6 hover:bg-red-500/10 hover:text-red-500 rounded text-muted-foreground transition-colors"
+                  onClick={() => onDiscardFile(item.path)}
+                  title={discardLabel}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              )}
             </div>
           </div>
         ))}
@@ -107,7 +122,7 @@ function FileIcon({ status }: { status: FileStatus }) {
 }
 
 export function FileList({ repoPath }: FileListProps) {
-  const { currentStatus, stageFile, unstageFile, stageAll, unstageAll, selectedFile, selectFile, mergeState } = useRepoStore();
+  const { currentStatus, stageFile, unstageFile, discardFile, stageAll, unstageAll, selectedFile, selectFile, mergeState } = useRepoStore();
 
   if (!currentStatus) {
     return (
@@ -172,8 +187,10 @@ export function FileList({ repoPath }: FileListProps) {
           files={currentStatus.unstaged}
           onStageFile={(file) => stageFile(repoPath, file)}
           onUnstageFile={() => {}}
+          onDiscardFile={(file) => discardFile(repoPath, file)}
           stageLabel="暂存文件"
           unstageLabel=""
+          discardLabel="放弃变更"
           icon={<span className="text-[10px] font-black text-amber-500">M</span>}
           selectedFile={selectedFile}
           onSelectFile={(file) => selectFile(repoPath, file)}
@@ -184,8 +201,10 @@ export function FileList({ repoPath }: FileListProps) {
           files={currentStatus.untracked}
           onStageFile={(file) => stageFile(repoPath, file)}
           onUnstageFile={() => {}}
+          onDiscardFile={(file) => discardFile(repoPath, file)}
           stageLabel="暂存文件"
           unstageLabel=""
+          discardLabel="删除文件"
           icon={<span className="text-[10px] font-black text-blue-500">U</span>}
           selectedFile={selectedFile}
           onSelectFile={(file) => selectFile(repoPath, file)}
