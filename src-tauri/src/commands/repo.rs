@@ -337,15 +337,30 @@ fn publish_branch_impl(repo: &Repository, branch_name: &str, remote: &str) -> Re
     // Prepare the push refspec
     let refspec = format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name);
 
+    // Get repository config for credential helper
+    let config = repo.config()?;
+
     // Set up remote callbacks for authentication
     let mut callbacks = git2::RemoteCallbacks::new();
 
     // Handle credentials for SSH/HTTPS
-    callbacks.credentials(|_url, username_from_url, _allowed_types| {
-        // Try SSH agent first for SSH URLs
-        git2::Cred::ssh_key_from_agent(
-            username_from_url.unwrap_or("git")
-        )
+    callbacks.credentials(move |url, username_from_url, allowed_types| {
+        // Get username from URL or default to "git"
+        let username = username_from_url.unwrap_or("git");
+
+        // Try different authentication methods based on what's allowed
+        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+            // Try SSH agent first for SSH URLs
+            git2::Cred::ssh_key_from_agent(username)
+        } else if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
+            // For HTTPS, try to use git-credential-helper
+            git2::Cred::credential_helper(&config, url, Some(username))
+        } else if allowed_types.contains(git2::CredentialType::DEFAULT) {
+            // Try default credential helper
+            git2::Cred::credential_helper(&config, url, Some(username))
+        } else {
+            Err(git2::Error::from_str("no authentication method available"))
+        }
     });
 
     // Configure push options
