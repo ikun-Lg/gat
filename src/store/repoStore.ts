@@ -57,6 +57,10 @@ interface RepoStore {
 
   generateCommitMessage: (repoPath: string, diffContent?: string) => Promise<CommitSuggestion>;
   reviewCode: (repoPath: string, diffContent?: string) => Promise<ReviewResult>;
+  
+  selectedFile: string | null;
+  selectedFileDiff: string | null;
+  selectFile: (repoPath: string, filePath: string | null) => Promise<void>;
 }
 
 export const useRepoStore = create<RepoStore>((set, get) => ({
@@ -70,12 +74,21 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
   commitHistory: [],
   isLoading: false,
   error: null,
-
+  selectedFile: null,
+  selectedFileDiff: null,
+  
   // Actions
   setRepositories: (repos) => set({ repositories: repos }),
 
   selectRepo: (path) => {
-    set({ selectedRepoPath: path, currentStatus: null, currentBranchInfo: null, localBranches: [] });
+    set({ 
+      selectedRepoPath: path, 
+      currentStatus: null, 
+      currentBranchInfo: null, 
+      localBranches: [],
+      selectedFile: null,
+      selectedFileDiff: null
+    });
     if (path) {
       get().refreshStatus(path);
       get().refreshBranchInfo(path);
@@ -335,5 +348,20 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
     });
 
     return { content };
+  },
+
+  selectFile: async (repoPath, filePath) => {
+    if (!filePath) {
+      set({ selectedFile: null, selectedFileDiff: null });
+      return;
+    }
+
+    try {
+      const diff = await invoke<string>('get_file_diff', { path: repoPath, filePath });
+      set({ selectedFile: filePath, selectedFileDiff: diff });
+    } catch (e) {
+      console.error('Failed to get file diff:', e);
+      set({ selectedFile: filePath, selectedFileDiff: 'Error loading diff' });
+    }
   },
 }));

@@ -4,6 +4,7 @@ import { useSettingsStore } from '../store/settingsStore';
 import { FileList } from './FileList';
 import { CommitPanel } from './CommitPanel';
 import { BranchSelector } from './BranchSelector';
+import { DiffView } from './DiffView';
 import { AlertCircle, Upload, RotateCcw, GitCommit, Download, GitGraph, Clock, FileDiff } from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
@@ -27,9 +28,12 @@ export function RepoView({ repoPath }: RepoViewProps) {
     refreshBranchInfo, 
     currentBranchInfo, 
     revokeLatestCommit, 
-    currentStatus, 
+    currentStatus,
     commitHistory,
-    loadCommitHistory 
+    loadCommitHistory,
+    selectedFile,
+    selectedFileDiff,
+    selectFile
   } = useRepoStore();
   const { gitUsername: savedUsername, gitPassword } = useSettingsStore();
 
@@ -59,8 +63,10 @@ export function RepoView({ repoPath }: RepoViewProps) {
   useEffect(() => {
     if (viewMode === 'history') {
       loadCommitHistory(repoPath);
+      // Clear selected file when switching to history
+      selectFile(repoPath, null);
     }
-  }, [viewMode, repoPath, loadCommitHistory]);
+  }, [viewMode, repoPath, loadCommitHistory, selectFile]);
 
   if (!repo) return null;
 
@@ -257,28 +263,47 @@ export function RepoView({ repoPath }: RepoViewProps) {
         
         {/* Changes View */}
         {viewMode === 'changes' && (
-           <div className="absolute inset-0 flex flex-col animate-in fade-in zoom-in-95 duration-200">
-             {/* File status summary */}
-             {(currentStatus && (currentStatus.staged.length > 0 || currentStatus.unstaged.length > 0 || currentStatus.untracked.length > 0)) && (
-                <div className="shrink-0 border-b bg-muted/30 px-4 py-2 flex items-center justify-between">
-                   <div className="flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-amber-500" />
-                      <span className="text-sm font-medium">未提交的修改</span>
-                      <Badge variant="secondary" className="lc-badge">
-                         {(currentStatus.staged.length || 0) + (currentStatus.unstaged.length || 0) + (currentStatus.untracked.length || 0)}
-                      </Badge>
-                   </div>
+            <div className="absolute inset-0 flex flex-col animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex-1 flex min-h-0">
+                {/* Left side: File List */}
+                <div className={cn(
+                  "flex flex-col flex-1 min-w-0 transition-all duration-300",
+                  selectedFile ? "w-1/3" : "w-full"
+                )}>
+                  {/* File status summary */}
+                  {(currentStatus && (currentStatus.staged.length > 0 || currentStatus.unstaged.length > 0 || currentStatus.untracked.length > 0)) && (
+                    <div className="shrink-0 border-b bg-muted/30 px-4 py-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-amber-500" />
+                          <span className="text-sm font-medium">未提交的修改</span>
+                          <Badge variant="secondary" className="lc-badge">
+                            {(currentStatus.staged.length || 0) + (currentStatus.unstaged.length || 0) + (currentStatus.untracked.length || 0)}
+                          </Badge>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
+                    <FileList repoPath={repoPath} />
+                  </div>
                 </div>
-             )}
-             
-             <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
-               <FileList repoPath={repoPath} />
-             </div>
-             
-             <div className="shrink-0 z-20">
-               <CommitPanel repoPath={repoPath} mode="single" />
-             </div>
-           </div>
+
+                {/* Right side: Diff View */}
+                {selectedFile && (
+                  <div className="w-2/3 border-l border-border/40 animate-in slide-in-from-right duration-300">
+                    <DiffView 
+                      filename={selectedFile} 
+                      diff={selectedFileDiff} 
+                      onClose={() => selectFile(repoPath, null)} 
+                    />
+                  </div>
+                )}
+              </div>
+              
+              <div className="shrink-0 z-20">
+                <CommitPanel repoPath={repoPath} mode="single" />
+              </div>
+            </div>
         )}
 
         {/* History View */}

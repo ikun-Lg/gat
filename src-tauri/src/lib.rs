@@ -24,6 +24,7 @@ pub fn run() {
             delete_branch,
             rename_branch,
             create_branch,
+            get_file_diff,
             // Commit commands
             stage_files,
             unstage_files,

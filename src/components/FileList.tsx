@@ -15,6 +15,8 @@ interface FileSectionProps {
   stageLabel: string;
   unstageLabel: string;
   icon: React.ReactNode;
+  selectedFile: string | null;
+  onSelectFile: (file: string) => void;
 }
 
 function FileSection({
@@ -25,6 +27,8 @@ function FileSection({
   stageLabel,
   unstageLabel,
   icon,
+  selectedFile,
+  onSelectFile,
 }: FileSectionProps) {
   if (files.length === 0) return null;
 
@@ -43,7 +47,10 @@ function FileSection({
         {files.map((item, index) => (
           <div
             key={`${item.path}-${index}`}
-            className="group flex items-center gap-3 px-3 py-2 hover:bg-accent/10 active:bg-accent/20 transition-colors duration-100 cursor-default"
+            onClick={() => onSelectFile(item.path)}
+            className={`group flex items-center gap-3 px-3 py-2 hover:bg-accent/10 active:bg-accent/20 transition-colors duration-100 cursor-default ${
+              selectedFile === item.path ? 'bg-accent/20' : ''
+            }`}
           >
             <div className="opacity-70 group-hover:opacity-100 transition-opacity">
               <FileIcon status={item.status} />
@@ -98,7 +105,7 @@ function FileIcon({ status }: { status: FileStatus }) {
 }
 
 export function FileList({ repoPath }: FileListProps) {
-  const { currentStatus, stageFile, unstageFile, stageAll, unstageAll } = useRepoStore();
+  const { currentStatus, stageFile, unstageFile, stageAll, unstageAll, selectedFile, selectFile } = useRepoStore();
 
   if (!currentStatus) {
     return (
@@ -154,6 +161,8 @@ export function FileList({ repoPath }: FileListProps) {
           stageLabel=""
           unstageLabel="取消暂存"
           icon={<span className="text-[10px] font-black text-green-500">S</span>}
+          selectedFile={selectedFile}
+          onSelectFile={(file) => selectFile(repoPath, file)}
         />
 
         <FileSection
@@ -164,6 +173,8 @@ export function FileList({ repoPath }: FileListProps) {
           stageLabel="暂存文件"
           unstageLabel=""
           icon={<span className="text-[10px] font-black text-amber-500">M</span>}
+          selectedFile={selectedFile}
+          onSelectFile={(file) => selectFile(repoPath, file)}
         />
 
         <FileSection
@@ -174,6 +185,8 @@ export function FileList({ repoPath }: FileListProps) {
           stageLabel="暂存文件"
           unstageLabel=""
           icon={<span className="text-[10px] font-black text-blue-500">U</span>}
+          selectedFile={selectedFile}
+          onSelectFile={(file) => selectFile(repoPath, file)}
         />
 
         {currentStatus.conflicted.length > 0 && (
@@ -185,6 +198,8 @@ export function FileList({ repoPath }: FileListProps) {
             stageLabel=""
             unstageLabel=""
             icon={<span className="text-[10px] font-black text-destructive">C</span>}
+            selectedFile={selectedFile}
+            onSelectFile={(file) => selectFile(repoPath, file)}
           />
         )}
       </div>

@@ -605,3 +605,64 @@ fn push_branch_impl(
 
     Ok(())
 }
+
+/// Get diff for a specific file
+#[tauri::command]
+pub async fn get_file_diff(path: String, file_path: String) -> std::result::Result<String, String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    get_file_diff_impl(&repo, &file_path).map_err(|e| e.to_string())
+}
+
+fn get_file_diff_impl(repo: &Repository, file_path: &str) -> Result<String> {
+    let mut opts = git2::DiffOptions::new();
+    opts.pathspec(file_path);
+
+    let mut diff_content = String::new();
+
+    // 1. Check if file is untracked
+    let status = repo.status_file(Path::new(file_path))?;
+    if status.is_wt_new() {
+        // For untracked files, we show the whole content as additions
+        let content = std::fs::read_to_string(repo.workdir().unwrap().join(file_path))?;
+        for line in content.lines() {
+            diff_content.push_str(&format!("+{}\n", line));
+        }
+        return Ok(diff_content);
+    }
+
+    // 2. Get staged changes (Index vs HEAD)
+    let head = repo.head().ok();
+    let head_tree = head
+        .as_ref()
+        .and_then(|h| h.peel_to_tree().ok());
+    
+    let staged_diff = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut opts))?;
+    
+    // 3. Get unstaged changes (Workdir vs Index)
+    let unstaged_diff = repo.diff_index_to_workdir(None, Some(&mut opts))?;
+
+    // Format the diffs
+    let mut format_diff = |diff: git2::Diff| -> Result<()> {
+        diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
+            let origin = line.origin();
+            let content = std::str::from_utf8(line.content()).unwrap_or("");
+            match origin {
+                '+' | '-' | ' ' => {
+                    diff_content.push(origin);
+                    diff_content.push_str(content);
+                }
+                'H' => {
+                    diff_content.push_str(content);
+                }
+                _ => {}
+            }
+            true
+        })?;
+        Ok(())
+    };
+
+    format_diff(staged_diff)?;
+    format_diff(unstaged_diff)?;
+
+    Ok(diff_content)
+}
