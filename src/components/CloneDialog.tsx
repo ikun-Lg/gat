@@ -7,10 +7,12 @@ import { useRepoStore } from '../store/repoStore';
 import { listen } from '@tauri-apps/api/event';
 import { Loader2, X, FolderOpen } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
+import { cn } from '../lib/utils';
 
 interface CloneDialogProps {
   onClose: () => void;
   isOpen: boolean;
+  mode?: 'modal' | 'overlay';
 }
 
 interface CloneProgress {
@@ -23,7 +25,7 @@ interface CloneProgress {
   received_bytes: number;
 }
 
-export function CloneDialog({ onClose, isOpen }: CloneDialogProps) {
+export function CloneDialog({ onClose, isOpen, mode = 'modal' }: CloneDialogProps) {
   const [url, setUrl] = useState('');
   const [destination, setDestination] = useState('');
   const [username, setUsername] = useState('');
@@ -82,11 +84,6 @@ export function CloneDialog({ onClose, isOpen }: CloneDialogProps) {
     let finalDestination = destination;
     const repoName = url.split('/').pop()?.replace('.git', '') || 'repository';
     if (!finalDestination.endsWith(repoName)) {
-        // Checking if destination is just a directory where we want to put the repo folder
-        // For simplicity, let's assume the user picks the PARENT directory, so we append the repo name
-        // But the dialog usually expects the full path. 
-        // Let's assume user picked the PARENT directory.
-        // We will append the repo name to it.
         if (!finalDestination.endsWith('/')) {
             finalDestination += '/';
         }
@@ -106,8 +103,16 @@ export function CloneDialog({ onClose, isOpen }: CloneDialogProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
-      <Card className="w-full max-w-md p-6 relative">
+    <div className={cn(
+      mode === 'modal' 
+        ? "fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50" 
+        : "absolute inset-0 bg-background z-50 flex flex-col"
+    )}>
+      <Card className={cn(
+        mode === 'modal' 
+          ? "w-full max-w-md p-6 relative" 
+          : "w-full h-full border-none shadow-none p-4 rounded-none overflow-y-auto"
+      )}>
         <Button 
             variant="ghost" 
             size="icon" 
@@ -148,7 +153,7 @@ export function CloneDialog({ onClose, isOpen }: CloneDialogProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className={cn("grid gap-4", mode === 'overlay' ? "grid-cols-1" : "grid-cols-2")}>
             <div className="space-y-2">
                 <Label htmlFor="username">用户名 (可选)</Label>
                 <Input 

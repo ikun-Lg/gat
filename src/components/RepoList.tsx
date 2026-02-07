@@ -26,7 +26,7 @@ export function RepoList({ onScanClick, onSettingsClick }: RepoListProps) {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       <div className="group flex items-center justify-between px-4 pt-10 pb-3 sticky top-0 z-10 shrink-0 drag-region">
         <h2 className="font-semibold text-xs text-muted-foreground/70 tracking-wide uppercase">项目仓库</h2>
         <div className="flex items-center gap-1 transition-opacity duration-200">
@@ -120,7 +120,8 @@ export function RepoList({ onScanClick, onSettingsClick }: RepoListProps) {
 
       <CloneDialog 
         isOpen={isCloneDialogOpen} 
-        onClose={() => setIsCloneDialogOpen(false)} 
+        onClose={() => setIsCloneDialogOpen(false)}
+        mode="overlay"
       />
     </div>
   );
