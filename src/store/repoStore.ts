@@ -51,6 +51,8 @@ interface RepoStore {
   switchBranch: (path: string, branchName: string) => Promise<void>;
   publishBranch: (path: string, branchName: string, remote?: string, username?: string, password?: string) => Promise<void>;
   pushBranch: (path: string, branchName: string, remote?: string, username?: string, password?: string) => Promise<void>;
+  deleteBranch: (path: string, branchName: string) => Promise<void>;
+  renameBranch: (path: string, oldName: string, newName: string) => Promise<void>;
 
   generateCommitMessage: (repoPath: string, diffContent?: string) => Promise<CommitSuggestion>;
   reviewCode: (repoPath: string, diffContent?: string) => Promise<ReviewResult>;
@@ -277,6 +279,24 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
   pushBranch: async (path, branchName, remote = 'origin', username?: string, password?: string) => {
     await invoke('push_branch', { path, branchName, remote, username, password });
     await get().refreshBranchInfo(path);
+  },
+
+  deleteBranch: async (path, branchName) => {
+    await invoke('delete_branch', { path, branchName });
+    await get().loadLocalBranches(path);
+    const current = get().currentBranchInfo?.current;
+    if (current === branchName) {
+      await get().refreshBranchInfo(path);
+    }
+  },
+
+  renameBranch: async (path, oldName, newName) => {
+    await invoke('rename_branch', { path, oldName, newName });
+    await get().loadLocalBranches(path);
+    const current = get().currentBranchInfo?.current;
+    if (current === oldName) {
+      await get().refreshBranchInfo(path);
+    }
   },
 
   generateCommitMessage: async (repoPath, diffContent) => {

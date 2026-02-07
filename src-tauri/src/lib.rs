@@ -21,6 +21,8 @@ pub fn run() {
             publish_branch,
             push_branch,
             get_git_username,
+            delete_branch,
+            rename_branch,
             // Commit commands
             stage_files,
             unstage_files,

@@ -324,6 +324,24 @@ fn switch_branch_impl(repo: &Repository, branch_name: &str) -> Result<()> {
     Ok(())
 }
 
+/// Delete a branch
+#[tauri::command]
+pub async fn delete_branch(path: String, branch_name: String) -> std::result::Result<(), String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    let mut branch = repo.find_branch(&branch_name, git2::BranchType::Local).map_err(|e| e.to_string())?;
+    branch.delete().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Rename a branch
+#[tauri::command]
+pub async fn rename_branch(path: String, old_name: String, new_name: String) -> std::result::Result<(), String> {
+    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+    let mut branch = repo.find_branch(&old_name, git2::BranchType::Local).map_err(|e| e.to_string())?;
+    branch.rename(&new_name, false).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// Publish current branch (set upstream)
 #[tauri::command]
 pub async fn publish_branch(

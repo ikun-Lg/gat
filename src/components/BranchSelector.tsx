@@ -2,21 +2,36 @@ import { useRepoStore } from '../store/repoStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
-import { GitBranch, Cloud, Check, Upload } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { GitBranch, Cloud, Check, Upload, Trash2, Edit3, Copy, MousePointer2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { cn } from '../lib/utils';
 
 interface BranchSelectorProps {
   repoPath: string;
 }
 
 export function BranchSelector({ repoPath }: BranchSelectorProps) {
-  const { currentBranchInfo, localBranches, switchBranch, publishBranch, pushBranch, loadLocalBranches, refreshBranchInfo } = useRepoStore();
+  const { 
+    currentBranchInfo, 
+    localBranches, 
+    switchBranch, 
+    publishBranch, 
+    pushBranch, 
+    deleteBranch,
+    renameBranch,
+    loadLocalBranches, 
+    refreshBranchInfo 
+  } = useRepoStore();
   const { gitUsername: savedUsername, gitPassword } = useSettingsStore();
   const [isOpen, setIsOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [gitUsername, setGitUsername] = useState<string>(savedUsername || '');
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, branch: string } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Load git username from config if not saved
   useEffect(() => {
@@ -104,6 +119,60 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
     }
   };
 
+  const handleContextMenu = (e: React.MouseEvent, branchName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, branch: branchName });
+  };
+
+  const handleDeleteBranch = async (branchName: string) => {
+    try {
+      const { ask } = await import('@tauri-apps/plugin-dialog');
+      const confirmed = await ask(`确定要删除分支 "${branchName}" 吗？`, {
+        title: '删除分支',
+        kind: 'warning',
+      });
+      if (!confirmed) return;
+
+      await deleteBranch(repoPath, branchName);
+      setContextMenu(null);
+    } catch (e) {
+      console.error('删除分支失败:', e);
+      setErrorMessage(String(e));
+    }
+  };
+
+  const handleRenameBranch = async (branchName: string) => {
+    try {
+      // For now we don't have a prompt dialog in Tauri plugin-dialog that returns text
+      // We'll use a simple window.prompt for now
+      const newName = window.prompt(`重命名分支 "${branchName}" 为:`, branchName);
+      if (newName && newName !== branchName) {
+        await renameBranch(repoPath, branchName, newName);
+        setContextMenu(null);
+      }
+    } catch (e) {
+      console.error('重命名分支失败:', e);
+      setErrorMessage(String(e));
+    }
+  };
+
+  const handleCopyBranchName = (branchName: string) => {
+    navigator.clipboard.writeText(branchName);
+    setContextMenu(null);
+  };
+
+  // Close context menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleOpen = () => {
     loadLocalBranches(repoPath);
     setIsOpen(true);
@@ -139,21 +208,75 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
               {localBranches.map((branch) => (
                 <div
                   key={branch.name}
-                  className="flex items-center justify-between p-2 rounded-md hover:bg-accent cursor-pointer group"
+                  className={cn(
+                    "flex items-center justify-between p-2 rounded-md hover:bg-accent cursor-pointer group transition-all duration-150",
+                    branch.isHead && "bg-primary/5"
+                  )}
                   onClick={() => handleSwitchBranch(branch.name)}
+                  onContextMenu={(e) => handleContextMenu(e, branch.name)}
                 >
                   <div className="flex items-center gap-2">
-                    {branch.isHead && <Check className="w-4 h-4 text-primary" />}
-                    <span className="text-sm">{branch.name}</span>
+                    {branch.isHead ? (
+                      <Check className="w-3.5 h-3.5 text-primary" />
+                    ) : (
+                      <div className="w-3.5 h-3.5" /> // Spacer
+                    )}
+                    <span className={cn("text-sm", branch.isHead && "font-semibold text-primary")}>
+                      {branch.name}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     {branch.upstream && (
-                      <Cloud className="w-3 h-3 text-muted-foreground" />
+                      <Cloud className="w-3 h-3 text-muted-foreground/60" />
                     )}
                   </div>
                 </div>
               ))}
             </div>
+
+            {/* Context Menu Portal (Simplified as overflow-visible container) */}
+            {contextMenu && (
+              <div 
+                ref={menuRef}
+                className="fixed z-[100] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-2xl py-1 w-48 animate-in fade-in zoom-in-95 duration-100"
+                style={{ left: contextMenu.x, top: contextMenu.y }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="px-3 py-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-100 dark:border-zinc-800 mb-1">
+                  分支: {contextMenu.branch}
+                </div>
+                
+                <button 
+                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-primary hover:text-white flex items-center gap-2"
+                  onClick={() => handleSwitchBranch(contextMenu.branch)}
+                >
+                  <MousePointer2 className="w-4 h-4" /> 切换至此分支
+                </button>
+                
+                <button 
+                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-primary hover:text-white flex items-center gap-2"
+                  onClick={() => handleRenameBranch(contextMenu.branch)}
+                >
+                  <Edit3 className="w-4 h-4" /> 重命名
+                </button>
+                
+                <button 
+                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-primary hover:text-white flex items-center gap-2"
+                  onClick={() => handleCopyBranchName(contextMenu.branch)}
+                >
+                  <Copy className="w-4 h-4" /> 复制名称
+                </button>
+                
+                <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-1" />
+                
+                <button 
+                  className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-500 hover:text-white flex items-center gap-2"
+                  onClick={() => handleDeleteBranch(contextMenu.branch)}
+                >
+                  <Trash2 className="w-4 h-4" /> 删除分支
+                </button>
+              </div>
+            )}
 
             {/* 操作按钮区域 */}
             {(needPush || !isPublished) && currentBranch && (
