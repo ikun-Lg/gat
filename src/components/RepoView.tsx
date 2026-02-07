@@ -100,65 +100,79 @@ export function RepoView({ repoPath }: RepoViewProps) {
   };
 
   return (
-    <div id="repo-view-container" className="flex flex-col h-full animate-enter">
-      {/* Header */}
-      <div className="flex items-center justify-between p-6 bg-background/40 backdrop-blur-sm border-b transition-all duration-300">
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-extrabold tracking-tight">{repo.name}</h1>
-          <div className="flex items-center gap-3">
+    <div id="repo-view-container" className="flex flex-col h-full bg-background/50">
+      {/* Header - macOS style toolbar */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 bg-glass/50 shrink-0 z-10">
+        <div className="flex flex-col gap-1">
+           <div className="flex items-center gap-3">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">{repo.name}</h1>
             <BranchSelector repoPath={repoPath} />
+           </div>
+           
+           <div className="flex items-center gap-2">
             {(repo.ahead > 0 || repo.behind > 0) && (
-              <Badge variant="outline" className="bg-primary/5 border-primary/20 text-primary font-bold px-2 py-0.5 rounded-md">
+              <Badge variant="outline" className="h-5 text-[10px] font-medium border-primary/30 text-primary px-1.5 rounded bg-primary/5">
                 {repo.ahead > 0 && `↑${repo.ahead} `}
                 {repo.behind > 0 && `↓${repo.behind}`}
               </Badge>
             )}
             {repo.hasChanges && (
-              <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-amber-500/20 gap-1 px-2 py-0.5 rounded-md">
+              <Badge variant="secondary" className="h-5 text-[10px] font-medium bg-amber-500/10 text-amber-600 border-amber-500/20 px-1.5 rounded gap-1">
                 <AlertCircle className="w-3 h-3" />
-                待提交
+                未提交的修改
               </Badge>
             )}
-          </div>
+           </div>
         </div>
+        
         <div className="flex items-center gap-3">
           {pushError && (
-            <span className="text-xs font-medium text-destructive bg-destructive/10 px-2 py-1 rounded-md animate-shake">{pushError}</span>
+            <span className="text-xs font-medium text-destructive bg-destructive/10 px-3 py-1.5 rounded-lg animate-shake">{pushError}</span>
           )}
-          {needPush && (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRevoke}
-                disabled={isRevoking || isPushing}
-                className="shadow-sm hover:shadow-md transition-all duration-300 active:scale-95 btn-tactile bg-background/50 backdrop-blur-sm"
-              >
-                <RotateCcw className={cn("w-4 h-4 mr-2", isRevoking && "animate-spin")} style={{ animationDirection: 'reverse' }} />
-                {isRevoking ? '撤回中...' : '撤回提交'}
-              </Button>
-              <Button
-                size="sm"
-                variant="default"
-                onClick={handlePush}
-                disabled={isPushing || isRevoking}
-                className="shadow-lg hover:shadow-indigo-500/20 transition-all duration-300 active:scale-95 btn-tactile"
-              >
-                <Upload className={cn("w-4 h-4 mr-2", isPushing && "animate-pulse")} />
-                {isPushing ? '正在推送...' : `推送变更 (${currentBranchInfo?.ahead || repo.ahead})`}
-              </Button>
-            </>
+          
+          {(needPush || true) && ( /* Always show for design check, logic remains */
+             <div className="flex items-center gap-2">
+                {/* Only show revoke if needed (logic from original code preserved) */}
+                {needPush && ( 
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRevoke}
+                    disabled={isRevoking || isPushing}
+                    className="h-8 shadow-sm hover:bg-destructive/5 hover:text-destructive hover:border-destructive/30 transition-all btn-tactile"
+                    title="撤销上次提交"
+                  >
+                    <RotateCcw className={cn("w-3.5 h-3.5", isRevoking && "animate-spin")} style={{ animationDirection: 'reverse' }} />
+                  </Button>
+                )}
+                
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={handlePush}
+                  disabled={isPushing || isRevoking || !needPush}
+                  className={cn(
+                    "h-8 shadow-sm transition-all btn-tactile font-medium px-4",
+                    needPush ? "opacity-100" : "opacity-50 grayscale"
+                  )}
+                >
+                  <Upload className={cn("w-3.5 h-3.5 mr-2", isPushing && "animate-pulse")} />
+                  {isPushing ? '推送中...' : '提交推送'}
+                </Button>
+             </div>
           )}
         </div>
       </div>
 
       {/* File list */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
         <FileList repoPath={repoPath} />
       </div>
 
       {/* Commit panel */}
-      <CommitPanel repoPath={repoPath} mode="single" />
+      <div className="shrink-0 z-20">
+        <CommitPanel repoPath={repoPath} mode="single" />
+      </div>
     </div>
   );
 }

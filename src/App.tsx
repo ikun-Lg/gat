@@ -8,8 +8,6 @@ import { RepoView } from './components/RepoView';
 import { WelcomeDialog } from './components/WelcomeDialog';
 import { ScanDialog } from './components/ScanDialog';
 import { Settings } from './components/Settings';
-import { Button } from './components/ui/Button';
-import { Settings as SettingsIcon, Github } from 'lucide-react';
 import { cn } from './lib/utils';
 import './App.css';
 
@@ -104,35 +102,19 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-background selection:bg-primary/20">
-      {/* 头部 */}
-      <header className="h-14 flex items-center justify-between px-6 sticky top-0 z-50 bg-glass drop-shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="p-1.5 bg-primary/10 rounded-lg">
-            <Github className="w-5 h-5 text-primary" />
-          </div>
-          <h1 className="font-bold tracking-tight text-lg">gayt</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => setShowSettings(true)}
-            className="hover:bg-primary/10 hover:text-primary transition-colors duration-200"
-            title="设置"
-          >
-            <SettingsIcon className="w-5 h-5" />
-          </Button>
-        </div>
-      </header>
+      {/* 头部已移除 */}
 
       {/* 主内容 */}
       <div className={cn("flex-1 flex overflow-hidden", isResizing && "resizing")}>
         {/* 侧边栏 */}
         <aside 
-          className="sidebar-glass flex flex-col shadow-inner shrink-0"
+          className="sidebar-glass flex flex-col shrink-0 select-none"
           style={{ width: `${sidebarWidth}px` }}
         >
-          <RepoList onScanClick={() => setShowScanDialog(true)} />
+          <RepoList 
+            onScanClick={() => setShowScanDialog(true)} 
+            onSettingsClick={() => setShowSettings(true)}
+          />
         </aside>
 
         {/* 调整大小控制柄 */}
@@ -142,20 +124,21 @@ function App() {
         />
 
         {/* 主视图 */}
-        <main className="flex-1 bg-background/50 relative overflow-hidden">
+        <main className="flex-1 bg-background/50 relative overflow-hidden flex flex-col">
+          {!selectedRepoPath && <div className="h-10 shrink-0 drag-region" />}
           {selectedRepoPath ? (
             <RepoView repoPath={selectedRepoPath} />
           ) : repositories.length > 0 ? (
-            <div className="h-full flex items-center justify-center text-muted-foreground">
-              <p>选择一个仓库查看详情</p>
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              <p>请选择一个仓库以查看详情</p>
             </div>
           ) : isLoading ? (
-            <div className="h-full flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center">
               <p>正在扫描仓库...</p>
             </div>
           ) : (
-            <div className="h-full flex items-center justify-center text-muted-foreground">
-              <p>未找到仓库。点击文件夹图标扫描目录。</p>
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              <p>暂无仓库。请点击文件夹图标扫描本地目录。</p>
             </div>
           )}
         </main>

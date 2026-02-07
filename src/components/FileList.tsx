@@ -1,6 +1,5 @@
 import { useRepoStore } from '../store/repoStore';
 import { Button } from './ui/Button';
-import { Badge } from './ui/Badge';
 import { Plus, Minus, File, FilePlus, FileMinus, FileEdit, GitBranch } from 'lucide-react';
 import type { FileStatus, StatusItem } from '../types';
 
@@ -31,46 +30,46 @@ function FileSection({
 
   return (
     <div className="mb-6 last:mb-0">
-      <div className="flex items-center gap-2 mb-3 px-1">
-        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-secondary/80">
+      <div className="flex items-center gap-2 mb-2 px-2 opacity-70 group hover:opacity-100 transition-opacity">
+        <div className="flex items-center justify-center w-5 h-5 rounded bg-secondary/50">
           {icon}
         </div>
-        <h3 className="text-[13px] font-bold tracking-tight text-foreground/80">{title}</h3>
-        <Badge variant="outline" className="bg-secondary/40 border-secondary/60 text-[10px] h-4.5 px-1.5 font-bold rounded-md">
+        <h3 className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">{title}</h3>
+        <span className="text-[10px] text-muted-foreground/60 font-mono">
           {files.length}
-        </Badge>
+        </span>
       </div>
-      <div className="space-y-1 rounded-xl overflow-hidden border bg-background/30 backdrop-blur-sm">
+      <div className="space-y-[1px] rounded-lg overflow-hidden border border-border/50 bg-card/40 backdrop-blur-sm">
         {files.map((item, index) => (
           <div
             key={`${item.path}-${index}`}
-            className="group flex items-center gap-3 p-2.5 hover:bg-accent/40 active:bg-accent/60 transition-all duration-200 border-b last:border-b-0"
+            className="group flex items-center gap-3 px-3 py-2 hover:bg-accent/10 active:bg-accent/20 transition-colors duration-100 cursor-default"
           >
-            <div className="transition-transform duration-300 group-hover:scale-110">
+            <div className="opacity-70 group-hover:opacity-100 transition-opacity">
               <FileIcon status={item.status} />
             </div>
-            <span className="flex-1 text-[13px] font-medium truncate text-foreground/80 group-hover:text-foreground transition-colors duration-200">{item.path}</span>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <span className="flex-1 text-[13px] font-normal truncate text-foreground/90 leading-none">{item.path}</span>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-100">
               {onStageFile && stageLabel && (
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="w-7 h-7 hover:bg-primary/20 hover:text-primary rounded-md btn-tactile"
+                  className="w-6 h-6 hover:bg-primary/10 hover:text-primary rounded text-muted-foreground transition-colors"
                   onClick={() => onStageFile(item.path)}
                   title={stageLabel}
                 >
-                  <Plus className="w-3.5 h-3.5 stroke-[3px]" />
+                  <Plus className="w-3.5 h-3.5" />
                 </Button>
               )}
               {onUnstageFile && unstageLabel && (
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="w-7 h-7 hover:bg-destructive/20 hover:text-destructive rounded-md btn-tactile"
+                  className="w-6 h-6 hover:bg-destructive/10 hover:text-destructive rounded text-muted-foreground transition-colors"
                   onClick={() => onUnstageFile(item.path)}
                   title={unstageLabel}
                 >
-                  <Minus className="w-3.5 h-3.5 stroke-[3px]" />
+                  <Minus className="w-3.5 h-3.5" />
                 </Button>
               )}
             </div>

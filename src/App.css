@@ -49,48 +49,79 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 224 71.4% 4.1%;
+    /* Apple-style Light Mode Palette */
+    --background: 0 0% 100%; /* Pure White */
+    --foreground: 0 0% 0%; /* Pure Black */
+    
     --card: 0 0% 100%;
-    --card-foreground: 224 71.4% 4.1%;
+    --card-foreground: 0 0% 0%;
+    
     --popover: 0 0% 100%;
-    --popover-foreground: 224 71.4% 4.1%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.75rem;
+    --popover-foreground: 0 0% 0%;
+    
+    /* SF Blue */
+    --primary: 211 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Light Gray for secondary elements */
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 4% 16%;
+    
+    /* Subtle muted text */
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+    
+    /* Accent color (can be same as primary or distinct) */
+    --accent: 211 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* SF Red */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Subtle borders */
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    
+    /* Focus Ring */
+    --ring: 211 100% 50%;
+    
+    --radius: 0.5rem; /* 8px rounded corners */
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* Apple-style Dark Mode Palette */
+    --background: 0 0% 12%; /* Dark Gray, almost black but not quite */
+    --foreground: 0 0% 98%;
+    
+    --card: 0 0% 18%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 0 0% 18%;
+    --popover-foreground: 0 0% 98%;
+    
+    /* SF Blue Dark Mode */
+    --primary: 211 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Dark Gray for secondary */
+    --secondary: 0 0% 22%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 0 0% 22%;
+    --muted-foreground: 240 5% 65%;
+    
+    --accent: 211 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* SF Red Dark Mode */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 0 0% 28%;
+    --input: 0 0% 28%;
+    
+    --ring: 211 100% 50%;
   }
 }
 
@@ -100,28 +131,35 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 @layer utilities {
+  /* Frosted Glass Effect - macOS Sidebar/Header style */
   .bg-glass {
-    @apply bg-background/60 backdrop-blur-md border-b;
+    @apply bg-background/80 backdrop-blur-xl border-b border-border/50;
+    /* Maintain transparency but ensure readability */
   }
   
   .sidebar-glass {
-    @apply bg-muted/30 backdrop-blur-xl border-r;
+    @apply bg-muted/50 backdrop-blur-2xl border-r border-border/50;
   }
 
+  /* Premium Card Style - subtle shadow, rounded corners */
   .card-premium {
-    @apply bg-card/50 backdrop-blur-sm border shadow-sm hover:shadow-md transition-all duration-300;
+    @apply bg-card/80 backdrop-blur-sm border border-border/50 shadow-sm rounded-xl transition-all duration-300;
   }
-
-  /* 游戏化交互类 */
+  
+  /* Apple-style Button Pulse/Active state */
   .btn-tactile {
-    @apply transition-transform duration-100 active:scale-90;
+    @apply transition-transform duration-100 active:scale-[0.98];
   }
 
+  /* Animations */
   .animate-enter {
     animation: enter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -138,14 +176,16 @@
     animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   }
 
+  /* Resize Handle - invisible but functional */
   .resize-handle {
-    @apply w-1.5 h-full cursor-col-resize hover:bg-primary/40 active:bg-primary/60 transition-colors duration-200 z-50 -ml-[3px];
+    @apply w-1 h-full cursor-col-resize hover:bg-primary/50 active:bg-primary transition-colors duration-200 z-50 -ml-[0.5px];
   }
 
   .resizing {
     @apply cursor-col-resize select-none pointer-events-none;
   }
 
+  /* Scrollbar styling */
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -155,14 +195,17 @@
   }
 
   .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
   .custom-scrollbar::-webkit-scrollbar-track {
     @apply bg-transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-border/50 rounded-full hover:bg-border transition-colors;
+    @apply bg-muted-foreground/30 rounded-full hover:bg-muted-foreground/50 transition-colors border-[2px] border-transparent bg-clip-content;
+  }
+  .custom-scrollbar::-webkit-scrollbar-corner {
+    @apply bg-transparent;
   }
 }
 
