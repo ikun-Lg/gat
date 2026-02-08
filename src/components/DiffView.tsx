@@ -1,4 +1,3 @@
-import { X, FileText, Check, Plus, Minus, Columns, AlignJustify } from 'lucide-react';
 import { Button } from './ui/Button';
 import { FileDiff } from '../types';
 import { useState, useEffect, useMemo } from 'react';
@@ -8,6 +7,10 @@ import SyntaxHighlighter from '../lib/syntaxHighlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { materialLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useThemeStore } from '../store/themeStore';
+import { useSettingsStore } from '../store/settingsStore';
+import { invoke } from '@tauri-apps/api/core';
+import { join } from '@tauri-apps/api/path';
+import { ExternalLink, X, FileText, Check, Plus, Minus, Columns, AlignJustify } from 'lucide-react';
 import React from 'react';
 
 interface DiffViewProps {
@@ -35,6 +38,7 @@ const CodeBlock = React.memo(({ content, language, style }: { content: string, l
 export function DiffView({ repoPath, filename, diff, onClose }: DiffViewProps) {
   const { stageChunk, selectedRepoPath } = useRepoStore();
   const { mode } = useThemeStore();
+  const { externalEditor } = useSettingsStore();
   const effectiveRepoPath = repoPath || selectedRepoPath || '';
 
   const [selectedIndices, setSelectedIndices] = useState<Set<string>>(new Set());
@@ -115,6 +119,16 @@ export function DiffView({ repoPath, filename, diff, onClose }: DiffViewProps) {
     }
   };
 
+  const handleOpenInEditor = async () => {
+    if (!externalEditor || !effectiveRepoPath) return;
+    try {
+        const fullPath = await join(effectiveRepoPath, filename);
+        await invoke('open_in_external_editor', { path: fullPath, editor: externalEditor });
+    } catch (e) {
+        console.error('Failed to open editor:', e);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-card/30 backdrop-blur-md border-l border-border/50">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-background/50">
@@ -155,6 +169,17 @@ export function DiffView({ repoPath, filename, diff, onClose }: DiffViewProps) {
           >
             {isStaging ? '暂存中...' : `暂存选中 (${selectedIndices.size})`}
           </Button>
+          {externalEditor && (
+            <Button
+                size="icon"
+                variant="outline"
+                className="h-7 w-7 rounded-md hover:bg-accent transition-colors"
+                onClick={handleOpenInEditor}
+                title="在外部编辑器中打开"
+            >
+                <ExternalLink className="w-3.5 h-3.5" />
+            </Button>
+          )}
           <Button
             size="icon"
             variant="ghost"

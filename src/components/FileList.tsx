@@ -8,6 +8,10 @@ import { CSS } from '@dnd-kit/utilities';
 import React, { useState, useMemo } from 'react';
 import { cn } from '../lib/utils';
 import { Input } from './ui/Input';
+import { ExternalLink } from 'lucide-react';
+import { useSettingsStore } from '../store/settingsStore';
+import { invoke } from '@tauri-apps/api/core';
+import { join } from '@tauri-apps/api/path';
 
 interface FileListProps {
   repoPath: string;
@@ -17,6 +21,7 @@ interface SortableFileItem {
   id: string;
   file: StatusItem;
   section: 'staged' | 'unstaged' | 'untracked';
+  repoPath: string;
 }
 
 interface FileSectionProps {
@@ -32,6 +37,7 @@ interface FileSectionProps {
   icon: React.ReactNode;
   selectedFile: string | null;
   onSelectFile: (file: string) => void;
+  repoPath: string;
 }
 
 function SortableFileRow({
@@ -123,8 +129,40 @@ function SortableFileRow({
             <Trash2 className="w-3 h-3" />
           </Button>
         )}
+        <OpenFileInEditorButton repoPath={item.repoPath} filePath={item.file.path} />
       </div>
     </div>
+  );
+}
+
+function OpenFileInEditorButton({ repoPath, filePath }: { repoPath: string, filePath: string }) {
+  const { externalEditor } = useSettingsStore();
+  
+  const handleOpen = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!externalEditor) return;
+    
+    try {
+      // Get absolute path
+      const fullPath = await join(repoPath, filePath);
+      await invoke('open_in_external_editor', { path: fullPath, editor: externalEditor });
+    } catch (e) {
+      console.error('Failed to open editor:', e);
+    }
+  };
+
+  if (!externalEditor) return null;
+
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      className="w-6 h-6 hover:bg-accent hover:text-accent-foreground rounded text-muted-foreground transition-colors"
+      onClick={handleOpen}
+      title="在外部编辑器中打开"
+    >
+      <ExternalLink className="w-3 h-3" />
+    </Button>
   );
 }
 
@@ -141,10 +179,11 @@ function FileSection({
   icon,
   selectedFile,
   onSelectFile,
+  repoPath,
 }: FileSectionProps) {
   const items: SortableFileItem[] = React.useMemo(() => 
-    files.map((file) => ({ id: `${section}-${file.path}`, file, section })),
-    [files, section]
+    files.map((file) => ({ id: `${section}-${file.path}`, file, section, repoPath })),
+    [files, section, repoPath]
   );
 
   const { setNodeRef, isOver } = useDroppable({
@@ -371,6 +410,7 @@ export function FileList({ repoPath }: FileListProps) {
                   icon={<span className="text-[10px] font-black text-green-500">S</span>}
                   selectedFile={selectedFile}
                   onSelectFile={(file) => selectFile(repoPath, file)}
+                  repoPath={repoPath}
                   />
                 )}
 
@@ -388,6 +428,7 @@ export function FileList({ repoPath }: FileListProps) {
                   icon={<span className="text-[10px] font-black text-amber-500">M</span>}
                   selectedFile={selectedFile}
                   onSelectFile={(file) => selectFile(repoPath, file)}
+                  repoPath={repoPath}
                   />
                 )}
 
@@ -405,6 +446,7 @@ export function FileList({ repoPath }: FileListProps) {
                   icon={<span className="text-[10px] font-black text-primary">U</span>}
                   selectedFile={selectedFile}
                   onSelectFile={(file) => selectFile(repoPath, file)}
+                  repoPath={repoPath}
                   />
                 )}
             </div>

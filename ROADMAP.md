@@ -190,10 +190,10 @@
   - [x] 支持常见 CI（GitHub Actions/GitLab CI/Jenkins）
 
 #### 4.3 外部工具集成
-- [ ] **编辑器集成**
-  - [ ] 在外部编辑器中打开文件
-  - [ ] 配置默认编辑器
-  - [ ] 支持常见编辑器（VS Code/IntelliJ/Vim）
+- [X] **编辑器集成**
+  - [X] 在外部编辑器中打开文件
+  - [X] 配置默认编辑器
+  - [X] 支持常见编辑器（VS Code/Cursor/IntelliJ/Vim）
 
 - [ ] **Git 扩展工具**
   - [ ] Git LFS 支持

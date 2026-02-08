@@ -63,6 +63,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
     enableNotifications,
     setAutoFetchInterval,
     setEnableNotifications,
+    externalEditor,
+    setExternalEditor,
   } = useSettingsStore();
 
   const { mode, setMode, primaryColor, setPrimaryColor } = useThemeStore();
@@ -314,6 +316,36 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                                 设置为 0 禁用自动获取
                             </span>
                         </div>
+                    </div>
+                </div>
+
+                {/* External Editor */}
+                <div className="space-y-4 pt-4 border-t">
+                    <h4 className="text-sm font-medium">外部编辑器</h4>
+                    <div className="space-y-2">
+                        <Label>默认编辑器</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                            {[
+                                { id: 'code', label: 'VS Code' },
+                                { id: 'cursor', label: 'Cursor' },
+                                { id: 'idea', label: 'IntelliJ' },
+                                { id: 'webstorm', label: 'WebStorm' },
+                                { id: 'sublime', label: 'Sublime' },
+                            ].map(editor => (
+                                <Button
+                                    key={editor.id}
+                                    type="button"
+                                    variant={externalEditor === editor.id ? 'default' : 'outline'}
+                                    onClick={() => setExternalEditor(editor.id)}
+                                    className="justify-start px-3"
+                                >
+                                    {editor.label}
+                                </Button>
+                            ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            选择在查看文件时使用的外部编辑器。
+                        </p>
                     </div>
                 </div>
               </div>

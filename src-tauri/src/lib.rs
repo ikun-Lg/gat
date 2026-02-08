@@ -43,7 +43,7 @@ pub fn run() {
             abort_rebase,
             amend_rebase_commit,
             // Commit commands
-            repo::search_commits,
+            search_commits,
             stage_files,
             unstage_files,
             stage_all,
@@ -80,8 +80,10 @@ pub fn run() {
             fetch_issue_list,
             create_pr,
             create_issue,
-            provider::fetch_commit_status,
-            provider::fetch_job_logs,
+            fetch_commit_status,
+            fetch_job_logs,
+            // Editor command
+            open_in_external_editor,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

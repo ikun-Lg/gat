@@ -57,6 +57,9 @@ interface SettingsStore extends Settings {
   // Sidebar
   sidebarWidth: number;
   setSidebarWidth: (width: number) => void;
+
+  // External Editor
+  setExternalEditor: (editor: string | null) => void;
 }
 
 // Helper to extract defaults
@@ -102,6 +105,7 @@ export const useSettingsStore = create<SettingsStore>()(
       
       sidebarWidth: 320, // Default width
       shortcuts: getDefaultShortcuts(),
+      externalEditor: 'code', // Default to VS Code
 
       // Actions
       setWorkDir: (dir) => set({ workDir: dir }),
@@ -138,6 +142,8 @@ export const useSettingsStore = create<SettingsStore>()(
       })),
       
       resetShortcuts: () => set({ shortcuts: getDefaultShortcuts() }),
+
+      setExternalEditor: (editor) => set({ externalEditor: editor }),
     }),
     {
       name: 'gat-settings',

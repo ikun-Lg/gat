@@ -234,6 +234,9 @@ export interface Settings {
   githubToken: string | null;
   gitlabToken: string | null;
   gitlabUrl: string | null;
+
+  // External Editor
+  externalEditor: "code" | "cursor" | "idea" | "sublime" | "webstorm" | string | null;
 }
 
 export interface DiffLine {
