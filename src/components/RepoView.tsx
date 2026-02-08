@@ -516,7 +516,7 @@ export function RepoView({ repoPath }: RepoViewProps) {
                      </Button>
                    )}
                    
-                   <Button
+                   {/* <Button
                      size="sm"
                      variant="default"
                      onClick={handlePush}
@@ -528,7 +528,7 @@ export function RepoView({ repoPath }: RepoViewProps) {
                    >
                      <Upload className={cn("w-3.5 h-3.5 mr-2", isPushing && "animate-pulse")} />
                      {isPushing ? '推送中...' : '提交推送'}
-                   </Button>
+                   </Button> */}
                 </div>
              )}
            </div>

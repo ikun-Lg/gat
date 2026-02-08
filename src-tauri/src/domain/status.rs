@@ -180,3 +180,7 @@ pub struct RebaseState {
     pub total_steps: usize,
     pub current_commit: Option<String>,
 }
+
+#[cfg(test)]
+#[path = "status_tests.rs"]
+mod status_tests;
