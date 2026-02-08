@@ -59,6 +59,10 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
     setClaudeModel,
     setOllamaEndpoint,
     setOllamaModel,
+    autoFetchInterval,
+    enableNotifications,
+    setAutoFetchInterval,
+    setEnableNotifications,
   } = useSettingsStore();
 
   const { mode, setMode, primaryColor, setPrimaryColor } = useThemeStore();
@@ -279,6 +283,39 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     </p>
                   </div>
                 )}
+                {/* Background Monitoring */}
+                <div className="space-y-4 pt-4 border-t">
+                    <h4 className="text-sm font-medium">后台监控</h4>
+                    
+                    <div className="flex items-center justify-between">
+                        <Label htmlFor="enable-notifications" className="cursor-pointer">启用通知</Label>
+                        <div className="flex items-center h-6">
+                             <input
+                                id="enable-notifications"
+                                type="checkbox"
+                                checked={enableNotifications}
+                                onChange={(e) => setEnableNotifications(e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                             />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>自动获取间隔 (分钟)</Label>
+                        <div className="flex items-center gap-2">
+                            <Input
+                                type="number"
+                                min="0"
+                                value={autoFetchInterval}
+                                onChange={(e) => setAutoFetchInterval(parseInt(e.target.value) || 0)}
+                                className="w-24"
+                            />
+                            <span className="text-xs text-muted-foreground">
+                                设置为 0 禁用自动获取
+                            </span>
+                        </div>
+                    </div>
+                </div>
               </div>
             )}
             

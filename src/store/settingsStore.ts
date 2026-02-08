@@ -40,6 +40,12 @@ interface SettingsStore extends Settings {
   setShortcut: (id: string, def: ShortcutDef) => void;
   resetShortcuts: () => void;
   
+  // Notifications
+  autoFetchInterval: number;
+  enableNotifications: boolean;
+  setAutoFetchInterval: (interval: number) => void;
+  setEnableNotifications: (enable: boolean) => void;
+
   // Sidebar
   sidebarWidth: number;
   setSidebarWidth: (width: number) => void;
@@ -83,8 +89,10 @@ export const useSettingsStore = create<SettingsStore>()(
       customPrompt: null,
       gitUsername: null,
       gitPassword: null,
-      sidebarWidth: 320, // Default width
+      autoFetchInterval: 10, // Default 10 minutes
+      enableNotifications: true,
       
+      sidebarWidth: 320, // Default width
       shortcuts: getDefaultShortcuts(),
 
       // Actions
@@ -107,6 +115,9 @@ export const useSettingsStore = create<SettingsStore>()(
       setGitPassword: (password) => set({ gitPassword: password }),
       setSidebarWidth: (width) => set({ sidebarWidth: width }),
       
+      setAutoFetchInterval: (interval) => set({ autoFetchInterval: interval }),
+      setEnableNotifications: (enable) => set({ enableNotifications: enable }),
+
       setShortcut: (id, def) => set((state) => ({
         shortcuts: { ...state.shortcuts, [id]: def }
       })),

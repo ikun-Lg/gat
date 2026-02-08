@@ -175,6 +175,8 @@ export interface Settings {
   commitLanguage: "zh" | "en";
   commitFormat: "conventional" | "custom";
   customPrompt: string | null;
+  autoFetchInterval: number; // in minutes, 0 to disable
+  enableNotifications: boolean;
 }
 
 export interface DiffLine {

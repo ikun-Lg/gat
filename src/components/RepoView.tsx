@@ -24,6 +24,7 @@ import { OperationLogPanel } from './OperationLogPanel';
 import { shortcutManager } from '../lib/shortcuts';
 import { CommitSearch } from './CommitSearch';
 import { CommitListDisplay } from './CommitListDisplay';
+import { ConflictBanner } from './ConflictBanner';
 import { History } from 'lucide-react';
 
 interface RepoViewProps {
@@ -112,6 +113,27 @@ export function RepoView({ repoPath }: RepoViewProps) {
     }
   }, [viewMode, repoPath, loadCommitHistory, selectFile]);
 
+  // Auto-Fetch Logic
+  const { autoFetchInterval, enableNotifications } = useSettingsStore();
+  
+  useEffect(() => {
+    if (autoFetchInterval <= 0) return;
+
+    // Initial fetch after a short delay to not block startup
+    const initialTimer = setTimeout(() => {
+        handleFetch(true); // silent fetch
+    }, 5000);
+
+    const interval = setInterval(() => {
+        handleFetch(true); // silent fetch
+    }, autoFetchInterval * 60 * 1000);
+
+    return () => {
+        clearTimeout(initialTimer);
+        clearInterval(interval);
+    };
+  }, [repoPath, autoFetchInterval]);
+
   // Register keyboard shortcuts
   useEffect(() => {
     const stageAll = useRepoStore.getState().stageAll;
@@ -194,13 +216,13 @@ export function RepoView({ repoPath }: RepoViewProps) {
   const needPush = (currentBranchInfo?.needPush ?? false) || repo.ahead > 0;
   const currentBranch = currentBranchInfo?.current || repo.branch || '';
 
-  const handleFetch = async () => {
+  const handleFetch = async (silent = false) => {
     if (!gitPassword) {
-      setPushError('请先在设置中配置 Git Token');
+      if (!silent) setPushError('请先在设置中配置 Git Token');
       return;
     }
     if (!gitUsername) {
-      setPushError('请先在设置中配置 Git 用户名');
+      if (!silent) setPushError('请先在设置中配置 Git 用户名');
       return;
     }
 
@@ -208,11 +230,29 @@ export function RepoView({ repoPath }: RepoViewProps) {
     setPushError(null);
     try {
       await fetch(repoPath, 'origin', gitUsername, gitPassword);
-      toast.success('获取更新成功');
+      if (!silent) toast.success('获取更新成功');
+      
+      // Check for updates
+      await refreshBranchInfo(repoPath);
+      
+      // Notify if behind
+      if (silent && enableNotifications) {
+          // We need to re-read the updated branch info from store, 
+          // but since state update is async, we can check it in a separate effect or just rely on the UI badge for now.
+          // For now, the toast notification for "Updates Available" can be handled here if we had access to the new state immediately,
+          // but refreshBranchInfo updates the store.
+          
+          // Let's just trigger a small toast if we found we are behind? 
+          // Actually, we can't easily know *if* we just became behind without checking state.
+          // For MVP, we just update the data, and the UI badge will update.
+      }
+
     } catch (e) {
       console.error('Fetch failed:', e);
-      setPushError(String(e));
-      toast.error(`获取更新失败: ${e}`);
+      if (!silent) {
+          setPushError(String(e));
+          toast.error(`获取更新失败: ${e}`);
+      }
     } finally {
       setIsFetching(false);
     }
@@ -349,7 +389,7 @@ export function RepoView({ repoPath }: RepoViewProps) {
               size="sm"
               variant="ghost"
               className="h-6 gap-1.5 text-xs font-normal text-muted-foreground hover:text-foreground"
-              onClick={handleFetch}
+              onClick={() => handleFetch()}
               disabled={isFetching}
               title="获取远程更新"
             >
@@ -547,9 +587,15 @@ export function RepoView({ repoPath }: RepoViewProps) {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 min-h-0 overflow-hidden relative flex">
+      <div className="flex-1 min-h-0 overflow-hidden relative flex flex-col">
         
-        <div className="flex-1 relative flex flex-col min-w-0">
+        {/* Persistent Conflict Banner */}
+        <ConflictBanner 
+            repoPath={repoPath} 
+            onResolve={() => setViewMode('conflicts')} 
+        />
+
+        <div className="flex-1 relative flex flex-col min-w-0 overflow-hidden">
             {/* Changes View */}
             {viewMode === 'changes' && (
                 <div className="absolute inset-0 flex flex-col animate-in fade-in zoom-in-95 duration-200">
