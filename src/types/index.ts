@@ -84,6 +84,11 @@ export interface LocalBranch {
   upstream: string | null;
 }
 
+export interface RemoteBranch {
+  name: string;
+  remote: string;
+}
+
 export interface CommitInfo {
   id: string;
   shortId: string;
@@ -158,6 +163,45 @@ export interface RemoteInfo {
   pushUrl: string | null;
 }
 
+// Provider types
+export interface PullRequest {
+  id: string;
+  number: number;
+  title: string;
+  body: string | null;
+  state: string;
+  author: string;
+  createdAt: string;
+  updatedAt: string;
+  url: string;
+  headRef: string;
+  baseRef: string;
+}
+
+export interface Issue {
+  id: string;
+  number: number;
+  title: string;
+  body: string | null;
+  state: string;
+  author: string;
+  createdAt: string;
+  updatedAt: string;
+  url: string;
+}
+
+export interface CreatePullRequest {
+  title: string;
+  body?: string;
+  head: string;
+  base: string;
+}
+
+export interface CreateIssue {
+  title: string;
+  body?: string;
+}
+
 // Settings types
 export interface Settings {
   workDir: string | null;
@@ -177,6 +221,11 @@ export interface Settings {
   customPrompt: string | null;
   autoFetchInterval: number; // in minutes, 0 to disable
   enableNotifications: boolean;
+  
+  // Provider settings
+  githubToken: string | null;
+  gitlabToken: string | null;
+  gitlabUrl: string | null;
 }
 
 export interface DiffLine {

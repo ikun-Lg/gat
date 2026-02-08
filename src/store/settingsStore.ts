@@ -46,6 +46,14 @@ interface SettingsStore extends Settings {
   setAutoFetchInterval: (interval: number) => void;
   setEnableNotifications: (enable: boolean) => void;
 
+  // Provider settings
+  githubToken: string | null;
+  gitlabToken: string | null;
+  gitlabUrl: string | null;
+  setGithubToken: (token: string | null) => void;
+  setGitlabToken: (token: string | null) => void;
+  setGitlabUrl: (url: string | null) => void;
+
   // Sidebar
   sidebarWidth: number;
   setSidebarWidth: (width: number) => void;
@@ -117,6 +125,13 @@ export const useSettingsStore = create<SettingsStore>()(
       
       setAutoFetchInterval: (interval) => set({ autoFetchInterval: interval }),
       setEnableNotifications: (enable) => set({ enableNotifications: enable }),
+
+      githubToken: null,
+      gitlabToken: null,
+      gitlabUrl: null,
+      setGithubToken: (token) => set({ githubToken: token }),
+      setGitlabToken: (token) => set({ gitlabToken: token }),
+      setGitlabUrl: (url) => set({ gitlabUrl: url }),
 
       setShortcut: (id, def) => set((state) => ({
         shortcuts: { ...state.shortcuts, [id]: def }

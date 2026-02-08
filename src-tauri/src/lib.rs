@@ -1,5 +1,6 @@
 mod domain;
 mod commands;
+mod infrastructure;
 mod error;
 
 use commands::*;
@@ -74,6 +75,11 @@ pub fn run() {
             remove_remote,
             rename_remote,
             set_remote_url,
+            // Provider commands
+            fetch_pr_list,
+            fetch_issue_list,
+            create_pr,
+            create_issue,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -28,6 +28,12 @@ pub enum AppError {
     InvalidInput(String),
 }
 
+impl From<String> for AppError {
+    fn from(s: String) -> Self {
+        AppError::InvalidInput(s)
+    }
+}
+
 impl serde::Serialize for AppError {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where

@@ -515,66 +515,103 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 <h3 className="text-lg font-semibold">Git 凭据</h3>
 
                 <p className="text-sm text-muted-foreground">
-                  配置 Git 凭据用于发布分支和推送提交。用户名将自动从 Git 全局配置获取，如未配置可手动输入。
+                  配置 Git 凭据用于发布分支和推送提交，同时配置 GitHub/GitLab 个人访问令牌用于集成功能。
                 </p>
 
-                {/* 用户名和密码都已保存 */}
-                {savedGitUsername && savedGitPassword ? (
-                  <div className="space-y-4">
-                    <div className="p-3 bg-muted/30 rounded-md space-y-1">
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">用户名:</span> {savedGitUsername}
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Token:</span> {'*'.repeat(8)}
-                      </div>
+                {/* Git User/Pass */}
+                <div className="space-y-4 pb-4 border-b">
+                     <h4 className="text-sm font-medium">Git HTTP 认证</h4>
+                    {savedGitUsername && savedGitPassword ? (
+                    <div className="space-y-4">
+                        <div className="p-3 bg-muted/30 rounded-md space-y-1">
+                        <div className="text-sm">
+                            <span className="text-muted-foreground">用户名:</span> {savedGitUsername}
+                        </div>
+                        <div className="text-sm">
+                            <span className="text-muted-foreground">Token:</span> {'*'.repeat(8)}
+                        </div>
+                        </div>
+                        <Button
+                        variant="destructive"
+                        onClick={handleClearGitCredentials}
+                        >
+                        清除凭据
+                        </Button>
                     </div>
-                    <Button
-                      variant="destructive"
-                      onClick={handleClearGitCredentials}
-                    >
-                      清除凭据
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* 用户名输入 */}
-                    <div className="space-y-2">
-                      <Label>用户名</Label>
-                      <Input
-                        value={localUsername}
-                        onChange={(e) => setLocalUsername(e.target.value)}
-                        placeholder={isLoadingUsername ? '加载中...' : 'Git 用户名'}
-                        disabled={isLoadingUsername}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        用户名将自动从 <code>git config --global user.name</code> 获取，如未获取到可手动输入
-                      </p>
-                    </div>
+                    ) : (
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                        <Label>用户名</Label>
+                        <Input
+                            value={localUsername}
+                            onChange={(e) => setLocalUsername(e.target.value)}
+                            placeholder={isLoadingUsername ? '加载中...' : 'Git 用户名'}
+                            disabled={isLoadingUsername}
+                        />
+                        </div>
 
-                    {/* Token 输入 */}
-                    <div className="space-y-2">
-                      <Label>Personal Access Token</Label>
-                      <Input
-                        type="password"
-                        value={localPassword}
-                        onChange={(e) => setLocalPassword(e.target.value)}
-                        placeholder="输入 Personal Access Token"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        对于 GitHub，请在设置中生成 Personal Access Token（勾选 repo 权限）
-                      </p>
-                    </div>
+                        <div className="space-y-2">
+                        <Label>Personal Access Token (HTTPS 推送用)</Label>
+                        <Input
+                            type="password"
+                            value={localPassword}
+                            onChange={(e) => setLocalPassword(e.target.value)}
+                            placeholder="输入 Personal Access Token"
+                        />
+                        </div>
 
-                    <Button
-                      onClick={handleSaveGitCredentials}
-                      disabled={!localUsername || !localPassword}
-                      className="w-full"
-                    >
-                      保存凭据
-                    </Button>
-                  </div>
-                )}
+                        <Button
+                        onClick={handleSaveGitCredentials}
+                        disabled={!localUsername || !localPassword}
+                        className="w-full"
+                        >
+                        保存凭据
+                        </Button>
+                    </div>
+                    )}
+                </div>
+
+                {/* Integration Tokens */}
+                <div className="space-y-4">
+                    <h4 className="text-sm font-medium">平台集成 (GitHub/GitLab)</h4>
+                    
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label>GitHub Token</Label>
+                            <Input
+                                type="password"
+                                value={useSettingsStore.getState().githubToken || ''}
+                                onChange={(e) => useSettingsStore.getState().setGithubToken(e.target.value)}
+                                placeholder="GitHub Personal Access Token"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                用于访问 GitHub Pull Requests 和 Issues。需勾选 repo 权限。
+                            </p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>GitLab Token</Label>
+                            <Input
+                                type="password"
+                                value={useSettingsStore.getState().gitlabToken || ''}
+                                onChange={(e) => useSettingsStore.getState().setGitlabToken(e.target.value)}
+                                placeholder="GitLab Personal Access Token"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>GitLab URL (可选)</Label>
+                            <Input
+                                value={useSettingsStore.getState().gitlabUrl || ''}
+                                onChange={(e) => useSettingsStore.getState().setGitlabUrl(e.target.value)}
+                                placeholder="https://gitlab.com (默认为 gitlab.com)"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                如果使用自托管 GitLab，请输入完整 URL。
+                            </p>
+                        </div>
+                    </div>
+                </div>
               </div>
             )}
           </div>

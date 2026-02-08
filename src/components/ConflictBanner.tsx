@@ -3,11 +3,10 @@ import { useRepoStore } from '../store/repoStore';
 import { Button } from './ui/Button';
 
 interface ConflictBannerProps {
-  repoPath: string;
   onResolve: () => void;
 }
 
-export function ConflictBanner({ repoPath, onResolve }: ConflictBannerProps) {
+export function ConflictBanner({ onResolve }: Omit<ConflictBannerProps, 'repoPath'>) {
   const { mergeState } = useRepoStore();
 
   if (!mergeState || !mergeState.isMergeInProgress || mergeState.conflictCount === 0) {

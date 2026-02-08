@@ -66,7 +66,7 @@ export function Calendar({
                  {day}
              </div>
          ))}
-         {days.map((day, i) => {
+         {days.map((day) => {
              const isSelected = selected ? isSameDay(day, selected) : false;
              const isCurrentMonth = isSameMonth(day, currentMonth);
              const isDateToday = isToday(day);

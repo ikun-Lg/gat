@@ -13,6 +13,7 @@ import type {
   StashInfo,
   TagInfo,
   RemoteInfo,
+  RemoteBranch,
   MergeState,
   ConflictResolution,
   RebaseState,
@@ -28,6 +29,7 @@ interface RepoStore {
   currentStatus: RepoStatus | null;
   currentBranchInfo: BranchInfo | null;
   localBranches: LocalBranch[];
+  remoteBranches: RemoteBranch[];
   commitHistory: CommitInfo[];
   isLoading: boolean;
   error: string | null;
@@ -56,6 +58,7 @@ interface RepoStore {
   refreshBranchInfo: (path: string) => Promise<void>;
   refreshAllRepoStatus: () => Promise<void>;
   loadLocalBranches: (path: string) => Promise<void>;
+  loadRemoteBranches: (path: string) => Promise<void>;
   loadCommitHistory: (path: string, limit?: number) => Promise<void>;
   loadMoreCommits: (path: string) => Promise<void>;
   loadStashes: (path: string) => Promise<void>;
@@ -146,6 +149,7 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
   currentStatus: null,
   currentBranchInfo: null,
   localBranches: [],
+  remoteBranches: [],
   commitHistory: [],
   isLoading: false,
   error: null,
@@ -170,6 +174,7 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
       currentStatus: null,
       currentBranchInfo: null,
       localBranches: [],
+      remoteBranches: [],
       selectedFile: null,
       selectedFileDiff: null,
       tags: [],
@@ -180,6 +185,7 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
       get().refreshStatus(path);
       get().refreshBranchInfo(path);
       get().loadLocalBranches(path);
+      get().loadRemoteBranches(path);
       get().loadStashes(path);
       get().loadTags(path);
       get().loadRemotes(path);
@@ -307,6 +313,15 @@ export const useRepoStore = create<RepoStore>((set, get) => ({
       set({ localBranches: branches });
     } catch (e) {
       console.error('Failed to load local branches:', e);
+    }
+  },
+
+  loadRemoteBranches: async (path) => {
+    try {
+      const branches = await invoke<RemoteBranch[]>('get_remote_branches', { path });
+      set({ remoteBranches: branches });
+    } catch (e) {
+      console.error('Failed to load remote branches:', e);
     }
   },
 

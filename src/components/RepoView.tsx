@@ -1,6 +1,5 @@
-
-import { useRepoStore } from '../store/repoStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useRepoStore } from '../store/repoStore';
 import { toast } from '../store/toastStore';
 import { FileList } from './FileList';
 import { CommitPanel } from './CommitPanel';
@@ -10,7 +9,7 @@ import { StashPanel } from './StashPanel';
 import { TagList } from './TagList';
 import { ConflictPanel } from './ConflictPanel';
 import { RebasePanel } from './RebasePanel';
-import { VirtualizedCommitList } from './VirtualizedCommitList';
+import { ProviderPanel } from './ProviderPanel';
 import { ShortcutHelp } from './ShortcutHelp';
 import { AlertCircle, Upload, RotateCcw, Download, GitGraph, Clock, FileDiff, Archive, Tag, Globe, AlertTriangle, GitBranch, Keyboard } from 'lucide-react';
 import { Badge } from './ui/Badge';
@@ -18,20 +17,19 @@ import { Button } from './ui/Button';
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { cn } from '../lib/utils';
-import { CommitGraph } from './CommitGraph';
 import { RemoteManagementDialog } from './RemoteManagementDialog';
 import { OperationLogPanel } from './OperationLogPanel';
 import { shortcutManager } from '../lib/shortcuts';
 import { CommitSearch } from './CommitSearch';
 import { CommitListDisplay } from './CommitListDisplay';
 import { ConflictBanner } from './ConflictBanner';
-import { History } from 'lucide-react';
+import { History, GitPullRequest } from 'lucide-react';
 
 interface RepoViewProps {
   repoPath: string;
 }
 
-type ViewMode = 'changes' | 'history' | 'stashes' | 'tags' | 'conflicts' | 'rebase';
+type ViewMode = 'changes' | 'history' | 'stashes' | 'tags' | 'conflicts' | 'rebase' | 'collaboration';
 
 export function RepoView({ repoPath }: RepoViewProps) {
   const {
@@ -45,9 +43,6 @@ export function RepoView({ repoPath }: RepoViewProps) {
     currentStatus,
     commitHistory,
     loadCommitHistory,
-    loadMoreCommits,
-    hasMoreCommits,
-    isLoadingMoreCommits,
     selectedFile,
     selectedFileDiff,
     selectFile,
@@ -58,7 +53,7 @@ export function RepoView({ repoPath }: RepoViewProps) {
   } = useRepoStore();
   const { gitUsername: savedUsername, gitPassword, shortcuts } = useSettingsStore();
 
-  const repo = repositories.find((r) => r.path === repoPath);
+  const repo = repositories.find((r: import('../types').Repository) => r.path === repoPath);
   
   const [viewMode, setViewMode] = useState<ViewMode>('changes');
   const [isPushing, setIsPushing] = useState(false);
@@ -525,6 +520,18 @@ export function RepoView({ repoPath }: RepoViewProps) {
                 <Tag className="w-3.5 h-3.5" />
                 标签
               </button>
+              <button
+                onClick={() => setViewMode('collaboration')}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all",
+                  viewMode === 'collaboration'
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                )}
+              >
+                <GitPullRequest className="w-3.5 h-3.5" />
+                协作
+              </button>
               {mergeState?.isMergeInProgress && (
                 <button
                   onClick={() => setViewMode('conflicts')}
@@ -591,7 +598,6 @@ export function RepoView({ repoPath }: RepoViewProps) {
         
         {/* Persistent Conflict Banner */}
         <ConflictBanner 
-            repoPath={repoPath} 
             onResolve={() => setViewMode('conflicts')} 
         />
 
@@ -722,6 +728,13 @@ export function RepoView({ repoPath }: RepoViewProps) {
                      loadCommitHistory(repoPath);
                    }}
                  />
+               </div>
+            )}
+
+            {/* Collaboration View */}
+            {viewMode === 'collaboration' && (
+               <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
+                 <ProviderPanel repoPath={repoPath} />
                </div>
             )}
         </div>

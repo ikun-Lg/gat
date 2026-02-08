@@ -27,7 +27,7 @@ export function useDebounce<T>(valueOrEffect: T | (() => void), delay: number = 
 }
 
 function useDebounceCallback(callback: () => void, delay: number) {
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const callbackRef = useRef(callback);
 
     useEffect(() => {
