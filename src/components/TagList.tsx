@@ -1,5 +1,6 @@
 
 import { useRepoStore } from '../store/repoStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { Tag, Trash2, UploadCloud, Plus, GitCommit } from 'lucide-react';
 import { Button } from './ui/Button';
 import { formatDistanceToNow } from 'date-fns';
@@ -18,9 +19,11 @@ export function TagList() {
     pushTag, 
     createTag 
   } = useRepoStore();
+  const { gitUsername, gitPassword } = useSettingsStore();
   
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [pushingTag, setPushingTag] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   if (!selectedRepoPath) return null;
 
@@ -36,12 +39,22 @@ export function TagList() {
   };
 
   const handlePush = async (tagName: string) => {
+    if (!gitPassword) {
+      setError('请先在设置中配置 Git Token');
+      return;
+    }
+    if (!gitUsername) {
+      setError('请先在设置中配置 Git 用户名');
+      return;
+    }
+
     setPushingTag(tagName);
+    setError(null);
     try {
-      await pushTag(selectedRepoPath, tagName);
+      await pushTag(selectedRepoPath, tagName, 'origin', gitUsername, gitPassword);
     } catch (e) {
       console.error(e);
-      // TODO: show error toast
+      setError(String(e));
     } finally {
       setPushingTag(null);
     }
@@ -64,6 +77,18 @@ export function TagList() {
           新建
         </Button>
       </div>
+      
+      {error && (
+        <div className="mx-2 mt-2 p-2 bg-destructive/10 border border-destructive/30 rounded-lg flex items-center justify-between">
+          <p className="text-xs text-destructive whitespace-pre-line">{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="text-xs text-destructive/70 hover:text-destructive underline ml-2"
+          >
+            关闭
+          </button>
+        </div>
+      )}
       
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {tags.map(tag => (
