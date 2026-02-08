@@ -1,6 +1,7 @@
 
 import { useRepoStore } from '../store/repoStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { toast } from '../store/toastStore';
 import { FileList } from './FileList';
 import { CommitPanel } from './CommitPanel';
 import { BranchSelector } from './BranchSelector';
@@ -205,9 +206,11 @@ export function RepoView({ repoPath }: RepoViewProps) {
     setPushError(null);
     try {
       await fetch(repoPath, 'origin', gitUsername, gitPassword);
+      toast.success('获取更新成功');
     } catch (e) {
       console.error('Fetch failed:', e);
       setPushError(String(e));
+      toast.error(`获取更新失败: ${e}`);
     } finally {
       setIsFetching(false);
     }
@@ -227,9 +230,11 @@ export function RepoView({ repoPath }: RepoViewProps) {
     setPushError(null);
     try {
       await pull(repoPath, 'origin', undefined, false, gitUsername, gitPassword);
+      toast.success('拉取成功');
     } catch (e) {
       console.error('Pull failed:', e);
       setPushError(String(e));
+      toast.error(`拉取失败: ${e}`);
        // 触发屏幕晃动反馈
        const element = document.getElementById('repo-view-container');
        if (element) {
@@ -282,9 +287,11 @@ export function RepoView({ repoPath }: RepoViewProps) {
         gitPassword
       );
       await refreshBranchInfo(repoPath);
+      toast.success('推送成功');
     } catch (e) {
       console.error('推送失败:', e);
       setPushError(String(e));
+      toast.error(`推送失败: ${e}`);
       // 触发屏幕晃动反馈
       const element = document.getElementById('repo-view-container');
       if (element) {
@@ -315,9 +322,11 @@ export function RepoView({ repoPath }: RepoViewProps) {
       if (viewMode === 'history') {
         loadCommitHistory(repoPath);
       }
+      toast.success('撤回提交成功');
     } catch (e) {
       console.error('撤回失败:', e);
       setPushError(String(e));
+      toast.error(`撤回失败: ${e}`);
     } finally {
       setIsRevoking(false);
     }
@@ -383,7 +392,7 @@ export function RepoView({ repoPath }: RepoViewProps) {
             ) : null}
 
             {currentBranchInfo && currentBranchInfo.behind > 0 && (
-               <Badge variant="outline" className="h-6 gap-1 bg-blue-500/10 text-blue-600 border-blue-500/20">
+               <Badge variant="outline" className="h-6 gap-1 bg-primary/10 text-primary border-primary/20">
                 <Download className="w-3 h-3" />
                 落后 {currentBranchInfo.behind}
               </Badge>

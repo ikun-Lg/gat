@@ -8,15 +8,54 @@ import { RepoView } from './components/RepoView';
 import { WelcomeDialog } from './components/WelcomeDialog';
 import { ScanDialog } from './components/ScanDialog';
 import { Settings } from './components/Settings';
+import { useLayoutStore } from './store/layoutStore';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Button } from './components/ui/Button';
+import { useThemeStore } from './store/themeStore';
+import { Toaster } from './components/ui/Toast';
 import { cn } from './lib/utils';
 import './App.css';
 
 function App() {
   const { repositories, selectedRepoPath, scanRepositories, isLoading } = useRepoStore();
-  const { workDir, setWorkDir, sidebarWidth, setSidebarWidth } = useSettingsStore();
+  const { workDir, setWorkDir } = useSettingsStore(); // Removed sidebar props
+  const { sidebarWidth, setSidebarWidth, isSidebarOpen, toggleSidebar } = useLayoutStore();
+  const { mode, primaryColor } = useThemeStore();
   const [showScanDialog, setShowScanDialog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+
+  // Theme Application Logic
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+
+    // Apply primary color
+    // Defines standard colors for: blue, purple, green, red, orange
+    const colors = {
+      blue: '211 100% 50%',
+      purple: '267 100% 61%',
+      green: '142 76% 36%',
+      red: '0 84% 60%',
+      orange: '24 95% 53%',
+    };
+    root.style.setProperty('--primary', colors[primaryColor]);
+    root.style.setProperty('--ring', colors[primaryColor]);
+    // Also update accent to match primary for consistent hover/selection states
+    root.style.setProperty('--accent', colors[primaryColor]);
+    // Ensure accent foreground is readable (white for these saturated colors)
+    root.style.setProperty('--accent-foreground', '0 0% 100%');
+
+    if (mode === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light';
+      root.classList.add(systemTheme);
+      return;
+    }
+
+    root.classList.add(mode);
+  }, [mode, primaryColor]);
 
   useEffect(() => {
     if (workDir) {
@@ -102,14 +141,15 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-background selection:bg-primary/20">
-      {/* 头部已移除 */}
-
-      {/* 主内容 */}
+      
       <div className={cn("flex-1 flex overflow-hidden", isResizing && "resizing")}>
-        {/* 侧边栏 */}
+        {/* Sidebar */}
         <aside 
-          className="sidebar-glass flex flex-col shrink-0 select-none"
-          style={{ width: `${sidebarWidth}px` }}
+          className={cn(
+            "sidebar-glass flex flex-col shrink-0 select-none transition-all duration-300 ease-in-out",
+            !isSidebarOpen && "-ml-[100%] w-0 opacity-0 overflow-hidden" // Hide sidebar
+          )}
+          style={{ width: isSidebarOpen ? `${sidebarWidth}px` : '0px' }}
         >
           <RepoList 
             onScanClick={() => setShowScanDialog(true)} 
@@ -117,14 +157,50 @@ function App() {
           />
         </aside>
 
-        {/* 调整大小控制柄 */}
-        <div 
-          className="resize-handle"
-          onMouseDown={handleMouseDown}
-        />
+        {/* Resize Handle & Toggle */}
+        <div className="relative z-50 flex items-center">
+             <div 
+                className={cn("resize-handle", !isSidebarOpen && "hidden")}
+                onMouseDown={handleMouseDown}
+                onDoubleClick={toggleSidebar}
+            />
+            {/* Floating Toggle Button (visible when sidebar closed or hovering near edge?) 
+                Actually, simpler to put it in the main content header or overlay.
+                For now, let's put a toggle button on the main view if closed.
+            */}
+             {!isSidebarOpen && (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute left-2 top-2 z-50 h-8 w-8 hover:bg-accent"
+                    onClick={toggleSidebar}
+                >
+                    <PanelLeftOpen className="w-4 h-4" />
+                </Button>
+            )}
+            {/* If open, maybe a close button in sidebar? Or just double click handle? 
+                Let's stick to handle double click for now or adding a button in RepoList header if reachable.
+                Actually, let's add the button to the main view header area always.
+            */}
+        </div>
 
-        {/* 主视图 */}
+        {/* Main View */}
         <main className="flex-1 bg-background/50 relative overflow-hidden flex flex-col">
+            {/* Toggle button in top-left if open */}
+             {isSidebarOpen && (
+                <div className="absolute left-2 top-2 z-40">
+                   <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 opacity-0 hover:opacity-100 transition-opacity"
+                        onClick={toggleSidebar}
+                        title="Toggle Sidebar"
+                    >
+                        <PanelLeftClose className="w-4 h-4" />
+                    </Button>
+                </div>
+            )}
+
           {!selectedRepoPath && <div className="h-10 shrink-0 drag-region" />}
           {selectedRepoPath ? (
             <RepoView repoPath={selectedRepoPath} />
@@ -154,6 +230,7 @@ function App() {
       {showSettings && (
         <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} />
       )}
+      <Toaster />
     </div>
   );
 }

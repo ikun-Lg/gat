@@ -124,7 +124,7 @@ function CommitItem({ commit, graphOffset }: CommitItemProps) {
           {commit.refs && commit.refs.length > 0 && (
             <div className="flex items-center gap-1 flex-shrink-0">
               {commit.refs.map((ref) => (
-                <Badge key={ref} variant="outline" className="h-4 text-[9px] px-1 py-0 border-blue-500/30 text-blue-600 bg-blue-500/5">
+                <Badge key={ref} variant="outline" className="h-4 text-[9px] px-1 py-0 border-primary/30 text-primary bg-primary/5">
                   {ref}
                 </Badge>
               ))}

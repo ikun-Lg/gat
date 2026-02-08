@@ -219,7 +219,7 @@ function FileIcon({ status }: { status: FileStatus }) {
     case 'modified':
       return <FileEdit className="w-4 h-4 text-amber-500 drop-shadow-[0_0_3px_rgba(245,158,11,0.3)]" />;
     case 'renamed':
-      return <File className="w-4 h-4 text-blue-500 drop-shadow-[0_0_3px_rgba(59,130,246,0.3)]" />;
+      return <File className="w-4 h-4 text-primary drop-shadow-sm" />;
     case 'unmerged':
       return <AlertTriangle className="w-4 h-4 text-destructive drop-shadow-[0_0_3px_rgba(239,68,68,0.3)]" />;
     default:
@@ -356,7 +356,7 @@ export function FileList({ repoPath }: FileListProps) {
             stageLabel="暂存文件"
             unstageLabel=""
             discardLabel="删除文件"
-            icon={<span className="text-[10px] font-black text-blue-500">U</span>}
+            icon={<span className="text-[10px] font-black text-primary">U</span>}
             selectedFile={selectedFile}
             onSelectFile={(file) => selectFile(repoPath, file)}
             />

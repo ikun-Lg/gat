@@ -1,8 +1,9 @@
+import { useThemeStore, PrimaryColor } from '../store/themeStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Label } from './ui/Label';
-import { X, Key, GitBranch, Settings as SettingsIcon, Keyboard } from 'lucide-react';
+import { X, Key, GitBranch, Settings as SettingsIcon, Keyboard, Palette } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { ShortcutConfigPanel } from './ShortcutConfigPanel';
@@ -12,10 +13,11 @@ interface SettingsProps {
   onClose: () => void;
 }
 
-type Tab = 'general' | 'ai' | 'git' | 'shortcuts';
+type Tab = 'general' | 'appearance' | 'ai' | 'git' | 'shortcuts';
 
 const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'general', label: '通用', icon: <SettingsIcon className="w-4 h-4" /> },
+  { id: 'appearance', label: '外观', icon: <Palette className="w-4 h-4" /> },
   { id: 'shortcuts', label: '快捷键', icon: <Keyboard className="w-4 h-4" /> },
   { id: 'ai', label: 'AI 设置', icon: <Key className="w-4 h-4" /> },
   { id: 'git', label: 'Git 凭据', icon: <GitBranch className="w-4 h-4" /> },
@@ -42,6 +44,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
     setGitUsername: saveGitUsername,
     setGitPassword: saveGitPassword,
   } = useSettingsStore();
+
+  const { mode, setMode, primaryColor, setPrimaryColor } = useThemeStore();
 
   const [activeTab, setActiveTab] = useState<Tab>('general');
   // ... (existing local state)
@@ -122,6 +126,69 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
 
           {/* Right Content */}
           <div className="flex-1 p-6 overflow-y-auto">
+            {/* Appearance Settings */}
+            {activeTab === 'appearance' && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold">外观设置</h3>
+                
+                {/* Theme Mode */}
+                <div className="space-y-2">
+                  <Label>主题模式</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      type="button"
+                      variant={mode === 'light' ? 'default' : 'outline'}
+                      onClick={() => setMode('light')}
+                      className="w-full"
+                    >
+                      浅色
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={mode === 'dark' ? 'default' : 'outline'}
+                      onClick={() => setMode('dark')}
+                      className="w-full"
+                    >
+                      深色
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={mode === 'system' ? 'default' : 'outline'}
+                      onClick={() => setMode('system')}
+                      className="w-full"
+                    >
+                      跟随系统
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Primary Color */}
+                <div className="space-y-2">
+                  <Label>主题色</Label>
+                  <div className="flex gap-3">
+                    {(['blue', 'purple', 'green', 'red', 'orange'] as PrimaryColor[]).map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => setPrimaryColor(color)}
+                        className={`w-8 h-8 rounded-full transition-all border-2 ${
+                          primaryColor === color ? 'border-primary scale-110' : 'border-transparent hover:scale-105'
+                        }`}
+                        style={{
+                            backgroundColor: {
+                                blue: 'hsl(211 100% 50%)',
+                                purple: 'hsl(267 100% 61%)',
+                                green: 'hsl(142 76% 36%)',
+                                red: 'hsl(0 84% 60%)',
+                                orange: 'hsl(24 95% 53%)',
+                            }[color]
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* General Settings */}
             {activeTab === 'general' && (
                // ... existing general settings content
