@@ -34,7 +34,9 @@ impl GitLabProvider {
 
     fn project_path(&self, owner: &str, repo: &str) -> String {
         // Project path needs to be URL encoded: owner/repo -> owner%2Frepo
-        format!("{}%2F{}", owner, repo)
+        // For nested groups, all slashes must be encoded.
+        let full_path = format!("{}/{}", owner, repo);
+        full_path.replace("/", "%2F")
     }
 }
 

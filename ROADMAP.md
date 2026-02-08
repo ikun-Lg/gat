@@ -173,15 +173,15 @@
 
 #### 4.1 GitHub/GitLab 集成
 - [ ] **PR/MR 管理**
-  - [ ] 查看 Pull Request 列表
-  - [ ] 创建 Pull Request
+  - [X] 查看 Pull Request 列表
+  - [X] 创建 Pull Request
   - [ ] PR 状态查看
   - [ ] 代码审查评论
 
 - [ ] **Issue 集成**
-  - [ ] Issue 列表查看
+  - [X] Issue 列表查看
   - [ ] 从 commit 关联 Issue
-  - [ ] 创建 Issue
+  - [X] 创建 Issue
 
 #### 4.2 CI/CD 集成
 - [ ] **CI 状态显示**
