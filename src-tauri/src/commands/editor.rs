@@ -43,31 +43,49 @@ fn open_in_external_editor_impl(path: &str, editor: &str) -> Result<()> {
             }
         };
 
-        let status = command.status().map_err(|e| AppError::Io(e))?;
-        if !status.success() {
-            // If failed, try using 'open -a' as a fallback for Mac
-            let app_name = match editor {
-                "code" => Some("Visual Studio Code"),
-                "cursor" => Some("Cursor"),
-                "idea" => Some("IntelliJ IDEA"),
-                "webstorm" => Some("WebStorm"),
-                "sublime" => Some("Sublime Text"),
-                _ => None,
+        // Try to run the command directly
+        let status_result = command.status();
+        
+        // Check if command failed to start (IO error) or returned non-success status
+        let should_try_fallback = match status_result {
+            Ok(status) => !status.success(),
+            Err(_) => true,
+        };
+
+        if should_try_fallback {
+            let mut fallback_apps = Vec::new();
+            
+            match editor {
+                "code" => {
+                    fallback_apps.push("Visual Studio Code");
+                    fallback_apps.push("Visual Studio Code - Insiders");
+                    fallback_apps.push("Cursor");
+                },
+                "cursor" => fallback_apps.push("Cursor"),
+                "idea" => fallback_apps.push("IntelliJ IDEA"),
+                "webstorm" => fallback_apps.push("WebStorm"),
+                "sublime" => fallback_apps.push("Sublime Text"),
+                _ => {},
             };
 
-            if let Some(app) = app_name {
-                let status = Command::new("open")
+            let mut success = false;
+            for app in fallback_apps {
+                 let status = Command::new("open")
                     .arg("-a")
                     .arg(app)
                     .arg(path)
-                    .status()
-                    .map_err(|e| AppError::Io(e))?;
+                    .status();
                 
-                if !status.success() {
-                    return Err(AppError::InvalidInput(format!("Failed to open editor: {}", editor)));
+                if let Ok(s) = status {
+                    if s.success() {
+                        success = true;
+                        break;
+                    }
                 }
-            } else {
-                return Err(AppError::InvalidInput(format!("Failed to open editor: {}", editor)));
+            }
+
+            if !success {
+                return Err(AppError::InvalidInput(format!("Failed to open editor: {}. Please check if the editor is installed.", editor)));
             }
         }
     }

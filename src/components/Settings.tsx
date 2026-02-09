@@ -342,7 +342,27 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                                     {editor.label}
                                 </Button>
                             ))}
+                            <Button
+                                type="button"
+                                variant={!['code', 'cursor', 'idea', 'webstorm', 'sublime'].includes(externalEditor || '') ? 'default' : 'outline'}
+                                onClick={() => setExternalEditor('custom')} 
+                                className="justify-start px-3"
+                            >
+                                自定义
+                            </Button>
                         </div>
+                        
+                        {!['code', 'cursor', 'idea', 'webstorm', 'sublime'].includes(externalEditor || '') && (
+                            <div className="mt-2">
+                                <Label className="text-xs mb-1.5 block">自定义命令 / 路径</Label>
+                                <Input 
+                                    value={externalEditor === 'custom' ? '' : (externalEditor || '')}
+                                    onChange={(e) => setExternalEditor(e.target.value)}
+                                    placeholder="例如: code-insiders, vim, /usr/local/bin/subl"
+                                />
+                            </div>
+                        )}
+                        
                         <p className="text-xs text-muted-foreground mt-1">
                             选择在查看文件时使用的外部编辑器。
                         </p>
