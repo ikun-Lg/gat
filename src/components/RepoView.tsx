@@ -14,7 +14,7 @@ import { ShortcutHelp } from './ShortcutHelp';
 import { SubmodulePanel } from './SubmodulePanel';
 import { LfsPanel } from './LfsPanel';
 import { SubtreePanel } from './SubtreePanel';
-import { AlertCircle, Upload, RotateCcw, Download, GitGraph, Clock, FileDiff, Archive, Tag, Globe, AlertTriangle, GitBranch, Keyboard, Box, Database, Share2 } from 'lucide-react';
+import { AlertCircle, Upload, RotateCcw, Download, GitGraph, Clock, FileDiff, Archive, Tag, Globe, AlertTriangle, GitBranch, Keyboard } from 'lucide-react';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { useState, useEffect } from 'react';
@@ -535,6 +535,7 @@ export function RepoView({ repoPath }: RepoViewProps) {
                 <GitPullRequest className="w-3.5 h-3.5" />
                 协作
               </button>
+{/* 
               <button
                 onClick={() => setViewMode('submodules')}
                 className={cn(
@@ -571,6 +572,7 @@ export function RepoView({ repoPath }: RepoViewProps) {
                 <Share2 className="w-3.5 h-3.5" />
                 子树
               </button>
+              */}
               {mergeState?.isMergeInProgress && (
                 <button
                   onClick={() => setViewMode('conflicts')}
