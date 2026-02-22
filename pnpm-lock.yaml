@@ -53,6 +53,9 @@ importers:
       react-syntax-highlighter:
         specifier: ^16.1.0
         version: 16.1.0(react@19.2.4)
+      tauri-plugin-keyring-api:
+        specifier: ^0.1.0
+        version: 0.1.1
       zustand:
         specifier: ^5.0.0
         version: 5.0.11(@types/react@19.2.13)(react@19.2.4)
@@ -1264,6 +1267,9 @@ packages:
     resolution: {integrity: sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ==}
     engines: {node: '>=14.0.0'}
     hasBin: true
+
+  tauri-plugin-keyring-api@0.1.1:
+    resolution: {integrity: sha512-vs1ztf6REJPfvUDBY3VgNHiW+xBHvBtMf3ZQIJKB8UCWdb2bLFoDS+BjUHe58deCPGTInCh+SEtd69pZvV/b4w==}
 
   thenify-all@1.6.0:
     resolution: {integrity: sha512-RNxQH/qI8/t3thXJDwcstUO4zeqo64+Uy/+sNVRBx4Xn2OX+OZ9oP+iJnNFqplFra2ZUVeKCSa2oVWi3T4uVmA==}
@@ -2627,6 +2633,10 @@ snapshots:
     transitivePeerDependencies:
       - tsx
       - yaml
+
+  tauri-plugin-keyring-api@0.1.1:
+    dependencies:
+      '@tauri-apps/api': 2.10.1
 
   thenify-all@1.6.0:
     dependencies:
