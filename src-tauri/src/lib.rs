@@ -5,6 +5,7 @@ mod error;
 
 use commands::*;
 use commands::extensions;
+use commands::logging;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -12,6 +13,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_keyring::init())
         .invoke_handler(tauri::generate_handler![
             // Repository commands
             scan_repositories,
@@ -94,6 +96,24 @@ pub fn run() {
             extensions::lfs_untrack,
             extensions::get_subtrees,
             extensions::add_subtree,
+            // Logging commands
+            logging::log_operation,
+            logging::get_operation_logs,
+            logging::clear_operation_logs,
+            // Credential commands
+            credentials::save_credential,
+            credentials::get_credential,
+            credentials::delete_credential,
+            credentials::list_credentials,
+            // SSH commands
+            ssh::generate_ssh_key,
+            ssh::get_ssh_keys,
+            ssh::delete_ssh_key,
+            ssh::read_ssh_public_key,
+            // GPG commands
+            gpg::get_gpg_keys,
+            gpg::configure_gpg_signing,
+            gpg::disable_gpg_signing,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -16,7 +16,7 @@ interface CommitPanelProps {
 
 export function CommitPanel({ repoPath, mode }: CommitPanelProps) {
   const { currentStatus, commit, batchCommit, generateCommitMessage, reviewCode, stashSave } = useRepoStore();
-  const { commitLanguage, shortcuts } = useSettingsStore();
+  const { commitLanguage, shortcuts, stashIncludeUntracked } = useSettingsStore();
   const [message, setMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -86,7 +86,7 @@ export function CommitPanel({ repoPath, mode }: CommitPanelProps) {
     
     setIsStashing(true);
     try {
-      await stashSave(path, message || undefined, true);
+      await stashSave(path, message || undefined, stashIncludeUntracked);
       setMessage('');
     } catch (e) {
       console.error('Stash failed:', e);
@@ -170,7 +170,7 @@ export function CommitPanel({ repoPath, mode }: CommitPanelProps) {
                {message.length > 0 && (
                 <span className={cn(
                   "text-[10px] font-mono",
-                  message.length > 50 ? "text-amber-500" : "text-muted-foreground/60"
+                  message.length > 72 ? "text-amber-500" : "text-muted-foreground/60"
                 )}>{message.length}</span>
                )}
             </div>

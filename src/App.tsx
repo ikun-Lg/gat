@@ -228,7 +228,11 @@ function App() {
         onScan={handleScan}
       />
       {showSettings && (
-        <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} />
+        <Settings 
+          isOpen={showSettings} 
+          onClose={() => setShowSettings(false)} 
+          repoPath={selectedRepoPath}
+        />
       )}
       <Toaster />
     </div>

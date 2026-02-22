@@ -6,6 +6,27 @@ import { Archive, Play, CornerUpLeft, Trash2 } from 'lucide-react';
 export const StashPanel: React.FC = () => {
   const { selectedRepoPath, stashes, stashApply, stashPop, stashDrop } = useRepoStore();
 
+  const handleStashDrop = async (repoPath: string, stashIndex: number, stashMessage: string) => {
+    try {
+      const { ask } = await import('@tauri-apps/plugin-dialog');
+      const confirmed = await ask(
+        `确定要删除这个 Stash 吗？\n\n消息: ${stashMessage || `Stash @{${stashIndex}}`}\n\n此操作无法撤销。`,
+        {
+          title: '确认删除 Stash',
+          kind: 'warning',
+          okLabel: '删除',
+          cancelLabel: '取消'
+        }
+      );
+      
+      if (!confirmed) return;
+      
+      await stashDrop(repoPath, stashIndex);
+    } catch (e) {
+      console.error('删除 Stash 失败:', e);
+    }
+  };
+
   if (!selectedRepoPath) return null;
 
   return (
@@ -59,7 +80,7 @@ export const StashPanel: React.FC = () => {
                   variant="ghost"
                   size="sm"
                   className="h-7 px-2 text-xs hover:text-destructive text-destructive/70"
-                  onClick={() => stashDrop(selectedRepoPath, stash.index)}
+                  onClick={() => handleStashDrop(selectedRepoPath, stash.index, stash.message)}
                 >
                   <Trash2 className="w-3 h-3" />
                 </Button>

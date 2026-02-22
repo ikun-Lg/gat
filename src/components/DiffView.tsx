@@ -426,7 +426,10 @@ function generatePatch(fileDiff: FileDiff, selectedIndices: Set<string>): string
     
     // Parse header to get start lines
     const headerMatch = hunk.header.match(/@@ \-(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
-    if (!headerMatch) continue;
+    if (!headerMatch) {
+      console.error(`Failed to parse hunk header: ${hunk.header}`);
+      continue;
+    }
     
     const oldStartLine = parseInt(headerMatch[1]);
     const newStartLine = parseInt(headerMatch[3]); 
@@ -474,17 +477,66 @@ function generatePatch(fileDiff: FileDiff, selectedIndices: Set<string>): string
     }
     
     if (hasSelectionInHunk) {
-      // Reconstruct header
-      let header = `@@ -${oldStartLine}`;
-      if (oldLen !== 1) header += `,${oldLen}`;
-      header += ` +${newStartLine}`;
+      // Reconstruct header with proper edge case handling
+      // Git patch format: @@ -oldStart,oldLen +newStart,newLen @@
+      // Note: oldLen or newLen can be 0 for pure additions/deletions
       
-      if (newLen !== 1) header += `,${newLen}`;
+      // Calculate the adjusted start lines based on the filtered content
+      let adjustedOldStart = oldStartLine;
+      let adjustedNewStart = newStartLine;
+      
+      // Count context and deletions before the first addition to adjust oldStart
+      let contextBeforeFirstChange = 0;
+      for (const line of newHunkLines) {
+        if (line.startsWith(' ') || line.startsWith('-')) {
+          contextBeforeFirstChange++;
+        } else {
+          break;
+        }
+      }
+      
+      // Adjust start lines if we have leading context/deletions
+      if (contextBeforeFirstChange > 0) {
+        adjustedOldStart = oldStartLine;
+        adjustedNewStart = newStartLine;
+      }
+      
+      // Build the header, handling edge cases:
+      // - If oldLen is 0, it's a pure addition
+      // - If newLen is 0, it's a pure deletion
+      // - Use the short form (no comma) when length is 1
+      
+      let header = `@@ -${adjustedOldStart}`;
+      if (oldLen !== 1) {
+        header += `,${oldLen}`;
+      }
+      header += ` +${adjustedNewStart}`;
+      
+      if (newLen !== 1) {
+        header += `,${newLen}`;
+      }
       header += ` @@`;
+      
+      // Validate the generated hunk
+      if (oldLen < 0 || newLen < 0) {
+        console.error(`Invalid hunk length: oldLen=${oldLen}, newLen=${newLen}`);
+        continue;
+      }
+      
+      // Skip empty hunks (shouldn't happen with hasSelectionInHunk check, but safe to check)
+      if (newHunkLines.length === 0) {
+        console.warn('Skipping empty hunk with selection');
+        continue;
+      }
       
       patch += header + '\n';
       patch += newHunkLines.join('\n') + '\n';
     }
+  }
+  
+  // Validate the final patch
+  if (patch.split('\n').length < 3) {
+    console.error('Generated patch is too short or invalid');
   }
   
   return patch;

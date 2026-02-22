@@ -1,7 +1,7 @@
 import { useRepoStore } from '../store/repoStore';
 import { CommitGraph } from './CommitGraph';
 import { VirtualizedCommitList } from './VirtualizedCommitList';
-import { GitGraph, SearchX } from 'lucide-react';
+import { GitGraph, SearchX, AlertCircle } from 'lucide-react';
 
 interface CommitListDisplayProps {
     repoPath: string;
@@ -52,6 +52,21 @@ export function CommitListDisplay({ repoPath, showGraph }: CommitListDisplayProp
 
     return (
         <>
+            {/* Search result warning banner */}
+            {isSearchMode && commitsToDisplay.length >= 100 && (
+                <div className="mx-2 mt-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                        <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+                            搜索结果限制
+                        </p>
+                        <p className="text-[10px] text-amber-600/80 dark:text-amber-400/80 mt-1">
+                            当前仅显示前 {commitsToDisplay.length} 条匹配的提交。如需查看更多结果,请尝试使用更具体的搜索条件。
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {showGraph && !isSearchMode && (
                 <CommitGraph commits={commitsToDisplay} rowHeight={56} />
             )}

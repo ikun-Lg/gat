@@ -3,17 +3,20 @@ import { useSettingsStore } from '../store/settingsStore';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Label } from './ui/Label';
-import { X, Key, GitBranch, Settings as SettingsIcon, Keyboard, Palette } from 'lucide-react';
+import { X, Key, GitBranch, Settings as SettingsIcon, Keyboard, Palette, Shield } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { ShortcutConfigPanel } from './ShortcutConfigPanel';
+import { SSHKeyManager } from './SSHKeyManager';
+import { GPGKeyManager } from './GPGKeyManager';
 
 interface SettingsProps {
   isOpen: boolean;
   onClose: () => void;
+  repoPath?: string | null;
 }
 
-type Tab = 'general' | 'appearance' | 'ai' | 'git' | 'shortcuts';
+type Tab = 'general' | 'appearance' | 'ai' | 'git' | 'shortcuts' | 'security';
 
 const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'general', label: '通用', icon: <SettingsIcon className="w-4 h-4" /> },
@@ -21,9 +24,10 @@ const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'shortcuts', label: '快捷键', icon: <Keyboard className="w-4 h-4" /> },
   { id: 'ai', label: 'AI 设置', icon: <Key className="w-4 h-4" /> },
   { id: 'git', label: 'Git 凭据', icon: <GitBranch className="w-4 h-4" /> },
+  { id: 'security', label: '安全性', icon: <Shield className="w-4 h-4" /> },
 ];
 
-export function Settings({ isOpen, onClose }: SettingsProps) {
+export function Settings({ isOpen, onClose, repoPath }: SettingsProps) {
   // ... (existing store hooks)
   const {
     workDir,
@@ -63,8 +67,14 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
     enableNotifications,
     setAutoFetchInterval,
     setEnableNotifications,
+    stashIncludeUntracked,
+    setStashIncludeUntracked,
     externalEditor,
     setExternalEditor,
+    requireConfirmationForSensitiveOps,
+    setRequireConfirmationForSensitiveOps,
+    readOnlyMode,
+    setReadOnlyMode,
   } = useSettingsStore();
 
   const { mode, setMode, primaryColor, setPrimaryColor } = useThemeStore();
@@ -368,6 +378,29 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                         </p>
                     </div>
                 </div>
+
+                {/* Stash Settings */}
+                <div className="space-y-4 pt-4 border-t">
+                    <h4 className="text-sm font-medium">Stash 设置</h4>
+                    
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <Label htmlFor="stash-untracked" className="cursor-pointer">包含未跟踪文件</Label>
+                            <p className="text-xs text-muted-foreground">
+                                Stash 时是否包含未跟踪的文件
+                            </p>
+                        </div>
+                        <div className="flex items-center h-6">
+                             <input
+                                id="stash-untracked"
+                                type="checkbox"
+                                checked={stashIncludeUntracked}
+                                onChange={(e) => setStashIncludeUntracked(e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                             />
+                        </div>
+                    </div>
+                </div>
               </div>
             )}
             
@@ -663,6 +696,116 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                             </p>
                         </div>
                     </div>
+                </div>
+              </div>
+            )}
+
+            {/* Security Settings */}
+            {activeTab === 'security' && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold">安全性设置</h3>
+
+                <p className="text-sm text-muted-foreground">
+                  配置安全选项以保护您的仓库和操作安全。
+                </p>
+
+                {/* Confirmation Settings */}
+                <div className="space-y-4 pb-4 border-b">
+                  <h4 className="text-sm font-medium">操作确认</h4>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="require-confirmation" className="cursor-pointer">
+                        敏感操作二次确认
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        在执行推送、合并、重置等危险操作前要求确认
+                      </p>
+                    </div>
+                    <div className="flex items-center h-6">
+                      <input
+                        id="require-confirmation"
+                        type="checkbox"
+                        checked={requireConfirmationForSensitiveOps}
+                        onChange={(e) => setRequireConfirmationForSensitiveOps(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-md">
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      💡 启用此选项可以防止误操作导致的代码丢失或历史记录损坏。
+                    </p>
+                  </div>
+                </div>
+
+                {/* Read-Only Mode */}
+                <div className="space-y-4 pb-4 border-b">
+                  <h4 className="text-sm font-medium">只读模式</h4>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="readonly-mode" className="cursor-pointer">
+                        只读模式
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        禁用所有修改操作，仅用于查看历史记录和文件
+                      </p>
+                    </div>
+                    <div className="flex items-center h-6">
+                      <input
+                        id="readonly-mode"
+                        type="checkbox"
+                        checked={readOnlyMode}
+                        onChange={(e) => setReadOnlyMode(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-md">
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      💡 只读模式下无法执行提交、推送、合并等修改操作。适合用于审查代码或查看历史。
+                    </p>
+                  </div>
+                </div>
+
+                {/* Operation Log */}
+                <div className="space-y-4 pb-4 border-b">
+                  <h4 className="text-sm font-medium">操作日志</h4>
+                  
+                  <p className="text-xs text-muted-foreground">
+                    所有关键操作都会被记录到操作日志中，便于审计和问题排查。
+                  </p>
+
+                  <div className="p-3 bg-muted/30 rounded-md">
+                    <p className="text-xs text-muted-foreground">
+                      📝 操作日志记录：推送、拉取、合并、重置、分支切换、删除操作等。
+                    </p>
+                  </div>
+                </div>
+
+                {/* SSH Key Management */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium">SSH 密钥管理</h4>
+                  
+                  <p className="text-xs text-muted-foreground">
+                    生成和管理SSH密钥，用于免密码访问Git仓库。
+                  </p>
+
+                  <SSHKeyManager />
+                </div>
+
+                {/* GPG Key Management */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium">GPG 签名管理</h4>
+                  
+                  <p className="text-xs text-muted-foreground">
+                    配置GPG密钥用于提交签名，确保提交的真实性。
+                  </p>
+
+                  <GPGKeyManager repoPath={repoPath || null} />
                 </div>
               </div>
             )}

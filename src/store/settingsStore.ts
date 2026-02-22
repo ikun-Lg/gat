@@ -46,6 +46,22 @@ interface SettingsStore extends Settings {
   setAutoFetchInterval: (interval: number) => void;
   setEnableNotifications: (enable: boolean) => void;
 
+  // Stash settings
+  stashIncludeUntracked: boolean;
+  setStashIncludeUntracked: (include: boolean) => void;
+
+  // Security settings
+  requireConfirmationForSensitiveOps: boolean;
+  setRequireConfirmationForSensitiveOps: (require: boolean) => void;
+  readOnlyMode: boolean;
+  setReadOnlyMode: (enabled: boolean) => void;
+  
+  // GPG settings
+  gpgSigningEnabled: boolean;
+  setGpgSigningEnabled: (enabled: boolean) => void;
+  gpgKeyId: string | null;
+  setGpgKeyId: (keyId: string | null) => void;
+
   // Provider settings
   githubToken: string | null;
   gitlabToken: string | null;
@@ -102,6 +118,15 @@ export const useSettingsStore = create<SettingsStore>()(
       gitPassword: null,
       autoFetchInterval: 10, // Default 10 minutes
       enableNotifications: true,
+      stashIncludeUntracked: true, // Default to include untracked files in stash
+      
+      // Security defaults
+      requireConfirmationForSensitiveOps: true, // Default to require confirmation
+      readOnlyMode: false, // Default to read-write mode
+      
+      // GPG defaults
+      gpgSigningEnabled: false, // Default to disabled
+      gpgKeyId: null, // No default key
       
       sidebarWidth: 320, // Default width
       shortcuts: getDefaultShortcuts(),
@@ -129,6 +154,15 @@ export const useSettingsStore = create<SettingsStore>()(
       
       setAutoFetchInterval: (interval) => set({ autoFetchInterval: interval }),
       setEnableNotifications: (enable) => set({ enableNotifications: enable }),
+      setStashIncludeUntracked: (include) => set({ stashIncludeUntracked: include }),
+
+      // Security setters
+      setRequireConfirmationForSensitiveOps: (require) => set({ requireConfirmationForSensitiveOps: require }),
+      setReadOnlyMode: (enabled) => set({ readOnlyMode: enabled }),
+      
+      // GPG setters
+      setGpgSigningEnabled: (enabled) => set({ gpgSigningEnabled: enabled }),
+      setGpgKeyId: (keyId) => set({ gpgKeyId: keyId }),
 
       githubToken: null,
       gitlabToken: null,

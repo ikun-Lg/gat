@@ -1,38 +1,64 @@
-import { useSettingsStore } from '../store/settingsStore';
-import { useRepoStore } from '../store/repoStore';
-import { toast } from '../store/toastStore';
-import { FileList } from './FileList';
-import { CommitPanel } from './CommitPanel';
-import { BranchSelector } from './BranchSelector';
-import { DiffView } from './DiffView';
-import { StashPanel } from './StashPanel';
-import { TagList } from './TagList';
-import { ConflictPanel } from './ConflictPanel';
-import { RebasePanel } from './RebasePanel';
-import { ProviderPanel } from './ProviderPanel';
-import { ShortcutHelp } from './ShortcutHelp';
-import { SubmodulePanel } from './SubmodulePanel';
-import { LfsPanel } from './LfsPanel';
-import { SubtreePanel } from './SubtreePanel';
-import { AlertCircle, Upload, RotateCcw, Download, GitGraph, Clock, FileDiff, Archive, Tag, Globe, AlertTriangle, GitBranch, Keyboard } from 'lucide-react';
-import { Badge } from './ui/Badge';
-import { Button } from './ui/Button';
-import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { cn } from '../lib/utils';
-import { RemoteManagementDialog } from './RemoteManagementDialog';
-import { OperationLogPanel } from './OperationLogPanel';
-import { shortcutManager } from '../lib/shortcuts';
-import { CommitSearch } from './CommitSearch';
-import { CommitListDisplay } from './CommitListDisplay';
-import { ConflictBanner } from './ConflictBanner';
-import { History, GitPullRequest } from 'lucide-react';
+import { useSettingsStore } from "../store/settingsStore";
+import { useRepoStore } from "../store/repoStore";
+import { toast } from "../store/toastStore";
+import { FileList } from "./FileList";
+import { CommitPanel } from "./CommitPanel";
+import { BranchSelector } from "./BranchSelector";
+import { DiffView } from "./DiffView";
+import { StashPanel } from "./StashPanel";
+import { TagList } from "./TagList";
+import { ConflictPanel } from "./ConflictPanel";
+import { RebasePanel } from "./RebasePanel";
+import { ProviderPanel } from "./ProviderPanel";
+import { ShortcutHelp } from "./ShortcutHelp";
+import { SubmodulePanel } from "./SubmodulePanel";
+import { LfsPanel } from "./LfsPanel";
+import { SubtreePanel } from "./SubtreePanel";
+import {
+  AlertCircle,
+  Upload,
+  RotateCcw,
+  Download,
+  GitGraph,
+  Clock,
+  FileDiff,
+  Archive,
+  Tag,
+  Globe,
+  AlertTriangle,
+  GitBranch,
+  Keyboard,
+} from "lucide-react";
+import { Badge } from "./ui/Badge";
+import { Button } from "./ui/Button";
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { cn } from "../lib/utils";
+import { RemoteManagementDialog } from "./RemoteManagementDialog";
+import { OperationLogPanel } from "./OperationLogPanel";
+import { shortcutManager } from "../lib/shortcuts";
+import { CommitSearch } from "./CommitSearch";
+import { CommitListDisplay } from "./CommitListDisplay";
+import { ConflictBanner } from "./ConflictBanner";
+import { ExportDialog } from "./ExportDialog";
+import { History, GitPullRequest } from "lucide-react";
+import { useSecurityCheck } from "../lib/useSecurityCheck";
 
 interface RepoViewProps {
   repoPath: string;
 }
 
-type ViewMode = 'changes' | 'history' | 'stashes' | 'tags' | 'conflicts' | 'rebase' | 'collaboration' | 'submodules' | 'lfs' | 'subtrees';
+type ViewMode =
+  | "changes"
+  | "history"
+  | "stashes"
+  | "tags"
+  | "conflicts"
+  | "rebase"
+  | "collaboration"
+  | "submodules"
+  | "lfs"
+  | "subtrees";
 
 export function RepoView({ repoPath }: RepoViewProps) {
   const {
@@ -52,22 +78,32 @@ export function RepoView({ repoPath }: RepoViewProps) {
     mergeState,
     getMergeState,
     rebaseState,
-    getRebaseState: checkRebaseState
+    getRebaseState: checkRebaseState,
   } = useRepoStore();
-  const { gitUsername: savedUsername, gitPassword, shortcuts } = useSettingsStore();
+  const {
+    gitUsername: savedUsername,
+    gitPassword,
+    shortcuts,
+  } = useSettingsStore();
 
-  const repo = repositories.find((r: import('../types').Repository) => r.path === repoPath);
-  
-  const [viewMode, setViewMode] = useState<ViewMode>('changes');
+  const repo = repositories.find(
+    (r: import("../types").Repository) => r.path === repoPath,
+  );
+
+  const [viewMode, setViewMode] = useState<ViewMode>("changes");
   const [isPushing, setIsPushing] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
   const [isRevoking, setIsRevoking] = useState(false);
   const [pushError, setPushError] = useState<string | null>(null);
-  const [gitUsername, setGitUsername] = useState<string>(savedUsername || '');
+  const [gitUsername, setGitUsername] = useState<string>(savedUsername || "");
   const [showGraph, setShowGraph] = useState(true); // Default to showing graph in history mode
   const [isRemoteDialogOpen, setIsRemoteDialogOpen] = useState(false);
   const [showOperationLog, setShowOperationLog] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+
+  // Security hook
+  const { checkSecurity: _checkSecurity, isReadOnlyMode } = useSecurityCheck();
 
   // Auto-check for conflicts after pull/merge operations
   useEffect(() => {
@@ -77,23 +113,23 @@ export function RepoView({ repoPath }: RepoViewProps) {
 
   // Auto-switch to conflicts view when merge is detected
   useEffect(() => {
-    if (mergeState?.isMergeInProgress && viewMode !== 'conflicts') {
-      setViewMode('conflicts');
+    if (mergeState?.isMergeInProgress && viewMode !== "conflicts") {
+      setViewMode("conflicts");
     }
   }, [mergeState?.isMergeInProgress]);
 
   // Auto-switch to rebase view when rebase is detected
   useEffect(() => {
-    if (rebaseState?.isRebaseInProgress && viewMode !== 'rebase') {
-      setViewMode('rebase');
+    if (rebaseState?.isRebaseInProgress && viewMode !== "rebase") {
+      setViewMode("rebase");
     }
   }, [rebaseState?.isRebaseInProgress]);
 
   // Load git username from config if not saved
   useEffect(() => {
     if (!savedUsername) {
-      invoke<string | null>('get_git_username', { path: repoPath })
-        .then(name => {
+      invoke<string | null>("get_git_username", { path: repoPath })
+        .then((name) => {
           if (name) setGitUsername(name);
         })
         .catch(() => {});
@@ -104,7 +140,7 @@ export function RepoView({ repoPath }: RepoViewProps) {
 
   // Load commit history when switching to history view
   useEffect(() => {
-    if (viewMode === 'history') {
+    if (viewMode === "history") {
       loadCommitHistory(repoPath);
       // Clear selected file when switching to history
       selectFile(repoPath, null);
@@ -113,22 +149,25 @@ export function RepoView({ repoPath }: RepoViewProps) {
 
   // Auto-Fetch Logic
   const { autoFetchInterval, enableNotifications } = useSettingsStore();
-  
+
   useEffect(() => {
     if (autoFetchInterval <= 0) return;
 
     // Initial fetch after a short delay to not block startup
     const initialTimer = setTimeout(() => {
-        handleFetch(true); // silent fetch
+      handleFetch(true); // silent fetch
     }, 5000);
 
-    const interval = setInterval(() => {
+    const interval = setInterval(
+      () => {
         handleFetch(true); // silent fetch
-    }, autoFetchInterval * 60 * 1000);
+      },
+      autoFetchInterval * 60 * 1000,
+    );
 
     return () => {
-        clearTimeout(initialTimer);
-        clearInterval(interval);
+      clearTimeout(initialTimer);
+      clearInterval(interval);
     };
   }, [repoPath, autoFetchInterval]);
 
@@ -141,65 +180,65 @@ export function RepoView({ repoPath }: RepoViewProps) {
 
     const unregister = shortcutManager.registerAll([
       {
-        key: shortcuts['stageAll']?.key || 'a',
-        ctrlKey: shortcuts['stageAll']?.ctrlKey,
-        shiftKey: shortcuts['stageAll']?.shiftKey,
-        altKey: shortcuts['stageAll']?.altKey,
-        metaKey: shortcuts['stageAll']?.metaKey,
-        description: '全部暂存',
-        enabled: () => viewMode === 'changes',
+        key: shortcuts["stageAll"]?.key || "a",
+        ctrlKey: shortcuts["stageAll"]?.ctrlKey,
+        shiftKey: shortcuts["stageAll"]?.shiftKey,
+        altKey: shortcuts["stageAll"]?.altKey,
+        metaKey: shortcuts["stageAll"]?.metaKey,
+        description: "全部暂存",
+        enabled: () => viewMode === "changes",
         action: () => stageAll(repoPath),
       },
       {
-        key: shortcuts['unstageAll']?.key || 'a',
-        ctrlKey: shortcuts['unstageAll']?.ctrlKey,
-        shiftKey: shortcuts['unstageAll']?.shiftKey,
-        altKey: shortcuts['unstageAll']?.altKey,
-        metaKey: shortcuts['unstageAll']?.metaKey,
-        description: '全部取消暂存',
-        enabled: () => viewMode === 'changes',
+        key: shortcuts["unstageAll"]?.key || "a",
+        ctrlKey: shortcuts["unstageAll"]?.ctrlKey,
+        shiftKey: shortcuts["unstageAll"]?.shiftKey,
+        altKey: shortcuts["unstageAll"]?.altKey,
+        metaKey: shortcuts["unstageAll"]?.metaKey,
+        description: "全部取消暂存",
+        enabled: () => viewMode === "changes",
         action: () => unstageAll(repoPath),
       },
       {
-        key: shortcuts['refresh']?.key || 'r',
-        ctrlKey: shortcuts['refresh']?.ctrlKey,
-        shiftKey: shortcuts['refresh']?.shiftKey,
-        altKey: shortcuts['refresh']?.altKey,
-        metaKey: shortcuts['refresh']?.metaKey,
-        description: '刷新',
+        key: shortcuts["refresh"]?.key || "r",
+        ctrlKey: shortcuts["refresh"]?.ctrlKey,
+        shiftKey: shortcuts["refresh"]?.shiftKey,
+        altKey: shortcuts["refresh"]?.altKey,
+        metaKey: shortcuts["refresh"]?.metaKey,
+        description: "刷新",
         action: () => refreshBranchInfo(repoPath),
       },
       {
-        key: shortcuts['stash']?.key || 's',
-        ctrlKey: shortcuts['stash']?.ctrlKey,
-        shiftKey: shortcuts['stash']?.shiftKey,
-        altKey: shortcuts['stash']?.altKey,
-        metaKey: shortcuts['stash']?.metaKey,
-        description: '贮存',
-        enabled: () => viewMode === 'changes',
+        key: shortcuts["stash"]?.key || "s",
+        ctrlKey: shortcuts["stash"]?.ctrlKey,
+        shiftKey: shortcuts["stash"]?.shiftKey,
+        altKey: shortcuts["stash"]?.altKey,
+        metaKey: shortcuts["stash"]?.metaKey,
+        description: "贮存",
+        enabled: () => viewMode === "changes",
         action: () => stashSave(repoPath),
       },
       {
-        key: shortcuts['historyView']?.key || 'h',
-        ctrlKey: shortcuts['historyView']?.ctrlKey,
-        shiftKey: shortcuts['historyView']?.shiftKey,
-        altKey: shortcuts['historyView']?.altKey,
-        metaKey: shortcuts['historyView']?.metaKey,
-        description: '历史视图',
-        action: () => setViewMode('history'),
+        key: shortcuts["historyView"]?.key || "h",
+        ctrlKey: shortcuts["historyView"]?.ctrlKey,
+        shiftKey: shortcuts["historyView"]?.shiftKey,
+        altKey: shortcuts["historyView"]?.altKey,
+        metaKey: shortcuts["historyView"]?.metaKey,
+        description: "历史视图",
+        action: () => setViewMode("history"),
       },
       {
-        key: shortcuts['changesView']?.key || '1',
-        ctrlKey: shortcuts['changesView']?.ctrlKey,
-        shiftKey: shortcuts['changesView']?.shiftKey,
-        altKey: shortcuts['changesView']?.altKey,
-        metaKey: shortcuts['changesView']?.metaKey,
-        description: '变更视图',
-        action: () => setViewMode('changes'),
+        key: shortcuts["changesView"]?.key || "1",
+        ctrlKey: shortcuts["changesView"]?.ctrlKey,
+        shiftKey: shortcuts["changesView"]?.shiftKey,
+        altKey: shortcuts["changesView"]?.altKey,
+        metaKey: shortcuts["changesView"]?.metaKey,
+        description: "变更视图",
+        action: () => setViewMode("changes"),
       },
       {
-        key: '?',
-        description: '快捷键帮助',
+        key: "?",
+        description: "快捷键帮助",
         action: () => setShowShortcutHelp(true),
       },
     ]);
@@ -212,44 +251,48 @@ export function RepoView({ repoPath }: RepoViewProps) {
   if (!repo) return null;
 
   const needPush = (currentBranchInfo?.needPush ?? false) || repo.ahead > 0;
-  const currentBranch = currentBranchInfo?.current || repo.branch || '';
+  const currentBranch = currentBranchInfo?.current || repo.branch || "";
 
   const handleFetch = async (silent = false) => {
     if (!gitPassword) {
-      if (!silent) setPushError('请先在设置中配置 Git Token');
+      if (!silent) setPushError("请先在设置中配置 Git Token");
       return;
     }
     if (!gitUsername) {
-      if (!silent) setPushError('请先在设置中配置 Git 用户名');
+      if (!silent) setPushError("请先在设置中配置 Git 用户名");
       return;
     }
 
     setIsFetching(true);
     setPushError(null);
     try {
-      await fetch(repoPath, 'origin', gitUsername, gitPassword);
-      if (!silent) toast.success('获取更新成功');
-      
+      await fetch(repoPath, "origin", gitUsername, gitPassword);
+      if (!silent) toast.success("获取更新成功");
+
       // Check for updates
       await refreshBranchInfo(repoPath);
-      
+
       // Notify if behind
       if (silent && enableNotifications) {
-          // We need to re-read the updated branch info from store, 
-          // but since state update is async, we can check it in a separate effect or just rely on the UI badge for now.
-          // For now, the toast notification for "Updates Available" can be handled here if we had access to the new state immediately,
-          // but refreshBranchInfo updates the store.
-          
-          // Let's just trigger a small toast if we found we are behind? 
-          // Actually, we can't easily know *if* we just became behind without checking state.
-          // For MVP, we just update the data, and the UI badge will update.
+        // We need to re-read the updated branch info from store,
+        // but since state update is async, we can check it in a separate effect or just rely on the UI badge for now.
+        // For now, the toast notification for "Updates Available" can be handled here if we had access to the new state immediately,
+        // but refreshBranchInfo updates the store.
+        // Let's just trigger a small toast if we found we are behind?
+        // Actually, we can't easily know *if* we just became behind without checking state.
+        // For MVP, we just update the data, and the UI badge will update.
       }
-
     } catch (e) {
-      console.error('Fetch failed:', e);
+      console.error("Fetch failed:", e);
       if (!silent) {
-          setPushError(String(e));
-          toast.error(`获取更新失败: ${e}`);
+        setPushError(String(e));
+        toast.error(`获取更新失败: ${e}`);
+      } else {
+        // For silent fetch (auto-fetch), log the error but don't show toast to avoid spam
+        // However, if notifications are enabled, show a subtle notification
+        if (enableNotifications) {
+          toast.warning(`自动获取失败: ${e}`, 3000);
+        }
       }
     } finally {
       setIsFetching(false);
@@ -258,30 +301,37 @@ export function RepoView({ repoPath }: RepoViewProps) {
 
   const handlePull = async () => {
     if (!gitPassword) {
-      setPushError('请先在设置中配置 Git Token');
+      setPushError("请先在设置中配置 Git Token");
       return;
     }
     if (!gitUsername) {
-      setPushError('请先在设置中配置 Git 用户名');
+      setPushError("请先在设置中配置 Git 用户名");
       return;
     }
 
     setIsPulling(true);
     setPushError(null);
     try {
-      await pull(repoPath, 'origin', undefined, false, gitUsername, gitPassword);
-      toast.success('拉取成功');
+      await pull(
+        repoPath,
+        "origin",
+        undefined,
+        false,
+        gitUsername,
+        gitPassword,
+      );
+      toast.success("拉取成功");
     } catch (e) {
-      console.error('Pull failed:', e);
+      console.error("Pull failed:", e);
       setPushError(String(e));
       toast.error(`拉取失败: ${e}`);
-       // 触发屏幕晃动反馈
-       const element = document.getElementById('repo-view-container');
-       if (element) {
-         element.classList.remove('animate-shake');
-         void element.offsetWidth; // trigger reflow
-         element.classList.add('animate-shake');
-       }
+      // 触发屏幕晃动反馈
+      const element = document.getElementById("repo-view-container");
+      if (element) {
+        element.classList.remove("animate-shake");
+        void element.offsetWidth; // trigger reflow
+        element.classList.add("animate-shake");
+      }
     } finally {
       setIsPulling(false);
     }
@@ -289,11 +339,11 @@ export function RepoView({ repoPath }: RepoViewProps) {
 
   const handlePush = async () => {
     if (!gitPassword) {
-      setPushError('请先在设置中配置 Git Token');
+      setPushError("请先在设置中配置 Git Token");
       return;
     }
     if (!gitUsername) {
-      setPushError('请先在设置中配置 Git 用户名');
+      setPushError("请先在设置中配置 Git 用户名");
       return;
     }
 
@@ -304,6 +354,26 @@ export function RepoView({ repoPath }: RepoViewProps) {
       const hasStagedChanges = currentStatus && currentStatus.staged.length > 0;
 
       if (hasStagedChanges) {
+        // Ask user if they want to commit staged changes before pushing
+        const { ask } = await import("@tauri-apps/plugin-dialog");
+        const shouldCommit = await ask(
+          `检测到有 ${currentStatus.staged.length} 个文件已暂存。\n\n` +
+            `是否要在推送前先提交这些暂存的更改？\n\n` +
+            `• 点击"是"将使用默认提交消息 "Update ${currentBranch}" 进行提交\n` +
+            `• 点击"否"将取消推送，您可以先手动提交后再推送`,
+          {
+            title: "发现暂存的更改",
+            kind: "warning",
+            okLabel: "是，先提交再推送",
+            cancelLabel: "否，取消推送",
+          },
+        );
+
+        if (!shouldCommit) {
+          setIsPushing(false);
+          return;
+        }
+
         // Generate a simple commit message if there are staged changes
         const commitMessage = `Update ${currentBranch}`;
 
@@ -312,9 +382,11 @@ export function RepoView({ repoPath }: RepoViewProps) {
         await commit(repoPath, commitMessage);
 
         // Clear the commit panel message if exists
-        const commitInput = document.getElementById('commit-message-input') as HTMLTextAreaElement;
+        const commitInput = document.getElementById(
+          "commit-message-input",
+        ) as HTMLTextAreaElement;
         if (commitInput) {
-          commitInput.value = '';
+          commitInput.value = "";
         }
       }
 
@@ -322,22 +394,22 @@ export function RepoView({ repoPath }: RepoViewProps) {
       await pushBranch(
         repoPath,
         currentBranch,
-        'origin',
+        "origin",
         gitUsername,
-        gitPassword
+        gitPassword,
       );
       await refreshBranchInfo(repoPath);
-      toast.success('推送成功');
+      toast.success("推送成功");
     } catch (e) {
-      console.error('推送失败:', e);
+      console.error("推送失败:", e);
       setPushError(String(e));
       toast.error(`推送失败: ${e}`);
       // 触发屏幕晃动反馈
-      const element = document.getElementById('repo-view-container');
+      const element = document.getElementById("repo-view-container");
       if (element) {
-        element.classList.remove('animate-shake');
+        element.classList.remove("animate-shake");
         void element.offsetWidth; // trigger reflow
-        element.classList.add('animate-shake');
+        element.classList.add("animate-shake");
       }
     } finally {
       setIsPushing(false);
@@ -346,25 +418,28 @@ export function RepoView({ repoPath }: RepoViewProps) {
 
   const handleRevoke = async () => {
     try {
-      const { ask } = await import('@tauri-apps/plugin-dialog');
-      const confirmed = await ask('确定要撤回最后一次提交吗？\n\n此操作将撤销最后一次提交，但保留所有更改在暂存区中。', {
-        title: '确认撤回提交',
-        kind: 'warning',
-        okLabel: '撤回',
-        cancelLabel: '取消'
-      });
-      
+      const { ask } = await import("@tauri-apps/plugin-dialog");
+      const confirmed = await ask(
+        "确定要撤回最后一次提交吗？\n\n此操作将撤销最后一次提交，但保留所有更改在暂存区中。",
+        {
+          title: "确认撤回提交",
+          kind: "warning",
+          okLabel: "撤回",
+          cancelLabel: "取消",
+        },
+      );
+
       if (!confirmed) return;
-    
+
       setIsRevoking(true);
       await revokeLatestCommit(repoPath);
       // Refresh history if in history mode
-      if (viewMode === 'history') {
+      if (viewMode === "history") {
         loadCommitHistory(repoPath);
       }
-      toast.success('撤回提交成功');
+      toast.success("撤回提交成功");
     } catch (e) {
-      console.error('撤回失败:', e);
+      console.error("撤回失败:", e);
       setPushError(String(e));
       toast.error(`撤回失败: ${e}`);
     } finally {
@@ -373,16 +448,42 @@ export function RepoView({ repoPath }: RepoViewProps) {
   };
 
   return (
-    <div id="repo-view-container" className="flex flex-col h-full bg-background/50">
+    <div
+      id="repo-view-container"
+      className="flex flex-col h-full bg-background/50"
+    >
+      {/* Read-Only Mode Banner */}
+      {isReadOnlyMode && (
+        <div className="shrink-0 bg-blue-600 text-white px-6 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <AlertCircle className="w-4 h-4" />
+            <span>只读模式已启用 - 所有修改操作已禁用</span>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-3 text-xs text-white hover:bg-white/20"
+            onClick={() => {
+              const { setReadOnlyMode } = useSettingsStore.getState();
+              setReadOnlyMode(false);
+            }}
+          >
+            退出只读模式
+          </Button>
+        </div>
+      )}
+
       {/* Header - macOS style toolbar */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 bg-glass/50 shrink-0 z-10">
         <div className="flex flex-col gap-1">
-           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">{repo.name}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
+              {repo.name}
+            </h1>
             <BranchSelector repoPath={repoPath} />
-           </div>
-           
-           <div className="flex items-center gap-1.5 ml-2">
+          </div>
+
+          <div className="flex items-center gap-1.5 ml-2">
             <Button
               size="sm"
               variant="ghost"
@@ -391,26 +492,33 @@ export function RepoView({ repoPath }: RepoViewProps) {
               disabled={isFetching}
               title="获取远程更新"
             >
-              <Download className={cn("w-3 h-3", isFetching && "animate-bounce")} />
-              {isFetching ? '获取中...' : 'Fetch'}
+              <Download
+                className={cn("w-3 h-3", isFetching && "animate-bounce")}
+              />
+              {isFetching ? "获取中..." : "Fetch"}
             </Button>
 
             <Button
               size="sm"
-              variant="ghost" 
+              variant="ghost"
               className="h-6 gap-1.5 text-xs font-normal text-muted-foreground hover:text-foreground"
               onClick={handlePull}
               disabled={isPulling}
               title="拉取远程更新并合并"
             >
-              <Download className={cn("w-3 h-3", isPulling && "animate-bounce")} />
-              {isPulling ? '拉取中...' : 'Pull'}
+              <Download
+                className={cn("w-3 h-3", isPulling && "animate-bounce")}
+              />
+              {isPulling ? "拉取中..." : "Pull"}
             </Button>
 
             <div className="w-px h-3 bg-border/50 mx-1" />
 
             {isPushing ? (
-              <Badge variant="outline" className="h-6 gap-1 bg-amber-500/10 text-amber-600 border-amber-500/20">
+              <Badge
+                variant="outline"
+                className="h-6 gap-1 bg-amber-500/10 text-amber-600 border-amber-500/20"
+              >
                 <Upload className="w-3 h-3 animate-bounce" />
                 推送中...
               </Badge>
@@ -425,14 +533,20 @@ export function RepoView({ repoPath }: RepoViewProps) {
                 推送提交
               </Button>
             ) : currentBranchInfo && currentBranchInfo.ahead > 0 ? (
-               <Badge variant="outline" className="h-6 gap-1 bg-amber-500/10 text-amber-600 border-amber-500/20">
+              <Badge
+                variant="outline"
+                className="h-6 gap-1 bg-amber-500/10 text-amber-600 border-amber-500/20"
+              >
                 <Upload className="w-3 h-3" />
                 超前 {currentBranchInfo.ahead}
               </Badge>
             ) : null}
 
             {currentBranchInfo && currentBranchInfo.behind > 0 && (
-               <Badge variant="outline" className="h-6 gap-1 bg-primary/10 text-primary border-primary/20">
+              <Badge
+                variant="outline"
+                className="h-6 gap-1 bg-primary/10 text-primary border-primary/20"
+              >
                 <Download className="w-3 h-3" />
                 落后 {currentBranchInfo.behind}
               </Badge>
@@ -450,14 +564,14 @@ export function RepoView({ repoPath }: RepoViewProps) {
 
             <Button
               size="sm"
-              variant="ghost" 
+              variant="ghost"
               className="h-9 w-9 p-0"
               onClick={() => setIsRemoteDialogOpen(true)}
               title="远程仓库管理"
             >
               <Globe className="w-5 h-5" />
             </Button>
-            
+
             <Button
               size="sm"
               variant={showOperationLog ? "secondary" : "ghost"}
@@ -467,75 +581,77 @@ export function RepoView({ repoPath }: RepoViewProps) {
             >
               <History className="w-5 h-5" />
             </Button>
-           </div>
+          </div>
         </div>
-        
+
         {/* View Switcher & Actions */}
         <div className="flex items-center gap-4">
-           {/* View Modes */}
-           <div className="flex items-center p-1 bg-muted/50 rounded-lg border border-border/50">
-              <button
-                onClick={() => setViewMode('changes')}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all",
-                  viewMode === 'changes' 
-                    ? "bg-background shadow-sm text-foreground" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                )}
-              >
-                <FileDiff className="w-3.5 h-3.5" />
-                变更
-                {repo.hasChanges && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
-              </button>
-              <button
-                onClick={() => setViewMode('history')}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all",
-                  viewMode === 'history' 
-                    ? "bg-background shadow-sm text-foreground" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                )}
-              >
-                <Clock className="w-3.5 h-3.5" />
-                历史
-              </button>
-              <button
-                onClick={() => setViewMode('stashes')}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all",
-                  viewMode === 'stashes' 
-                    ? "bg-background shadow-sm text-foreground" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                )}
-              >
-                <Archive className="w-3.5 h-3.5" />
-                贮存
-              </button>
-              <button
-                onClick={() => setViewMode('tags')}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all",
-                  viewMode === 'tags'
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                )}
-              >
-                <Tag className="w-3.5 h-3.5" />
-                标签
-              </button>
-              <button
-                onClick={() => setViewMode('collaboration')}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all",
-                  viewMode === 'collaboration'
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                )}
-              >
-                <GitPullRequest className="w-3.5 h-3.5" />
-                协作
-              </button>
-{/* 
+          {/* View Modes */}
+          <div className="flex items-center p-1 bg-muted/50 rounded-lg border border-border/50">
+            <button
+              onClick={() => setViewMode("changes")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all",
+                viewMode === "changes"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+              )}
+            >
+              <FileDiff className="w-3.5 h-3.5" />
+              变更
+              {repo.hasChanges && (
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              )}
+            </button>
+            <button
+              onClick={() => setViewMode("history")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all",
+                viewMode === "history"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+              )}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              历史
+            </button>
+            <button
+              onClick={() => setViewMode("stashes")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all",
+                viewMode === "stashes"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+              )}
+            >
+              <Archive className="w-3.5 h-3.5" />
+              贮存
+            </button>
+            <button
+              onClick={() => setViewMode("tags")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all",
+                viewMode === "tags"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+              )}
+            >
+              <Tag className="w-3.5 h-3.5" />
+              标签
+            </button>
+            <button
+              onClick={() => setViewMode("collaboration")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all",
+                viewMode === "collaboration"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+              )}
+            >
+              <GitPullRequest className="w-3.5 h-3.5" />
+              协作
+            </button>
+            {/* 
               <button
                 onClick={() => setViewMode('submodules')}
                 className={cn(
@@ -573,49 +689,57 @@ export function RepoView({ repoPath }: RepoViewProps) {
                 子树
               </button>
               */}
-              {mergeState?.isMergeInProgress && (
-                <button
-                  onClick={() => setViewMode('conflicts')}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all",
-                    viewMode === 'conflicts'
-                      ? "bg-destructive/10 shadow-sm text-destructive border border-destructive/30"
-                      : "text-destructive/70 hover:text-destructive hover:bg-destructive/5"
-                  )}
-                >
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  冲突
-                  {mergeState.conflictCount > 0 && (
-                    <span className="flex items-center justify-center w-4 h-4 text-[9px] bg-destructive text-white rounded-full">
-                      {mergeState.conflictCount}
-                    </span>
-                  )}
-                </button>
-              )}
-            </div>
+            {mergeState?.isMergeInProgress && (
+              <button
+                onClick={() => setViewMode("conflicts")}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all",
+                  viewMode === "conflicts"
+                    ? "bg-destructive/10 shadow-sm text-destructive border border-destructive/30"
+                    : "text-destructive/70 hover:text-destructive hover:bg-destructive/5",
+                )}
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                冲突
+                {mergeState.conflictCount > 0 && (
+                  <span className="flex items-center justify-center w-4 h-4 text-[9px] bg-destructive text-white rounded-full">
+                    {mergeState.conflictCount}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
 
-           <div className="flex items-center gap-3">
-             {pushError && (
-               <span className="text-xs font-medium text-destructive bg-destructive/10 px-3 py-1.5 rounded-lg animate-shake">{pushError}</span>
-             )}
-             
-             {/* Global Actions (mostly for Changes view) */}
-             {viewMode === 'changes' && (needPush || true) && (
-                <div className="flex items-center gap-2">
-                   {needPush && ( 
-                     <Button
-                       size="sm"
-                       variant="outline"
-                       onClick={handleRevoke}
-                       disabled={isRevoking || isPushing}
-                       className="h-8 shadow-sm hover:bg-destructive/5 hover:text-destructive hover:border-destructive/30 transition-all btn-tactile"
-                       title="撤销上次提交"
-                     >
-                       <RotateCcw className={cn("w-3.5 h-3.5", isRevoking && "animate-spin")} style={{ animationDirection: 'reverse' }} />
-                     </Button>
-                   )}
-                   
-                   {/* <Button
+          <div className="flex items-center gap-3">
+            {pushError && (
+              <span className="text-xs font-medium text-destructive bg-destructive/10 px-3 py-1.5 rounded-lg animate-shake">
+                {pushError}
+              </span>
+            )}
+
+            {/* Global Actions (mostly for Changes view) */}
+            {viewMode === "changes" && (needPush || true) && (
+              <div className="flex items-center gap-2">
+                {needPush && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRevoke}
+                    disabled={isRevoking || isPushing}
+                    className="h-8 shadow-sm hover:bg-destructive/5 hover:text-destructive hover:border-destructive/30 transition-all btn-tactile"
+                    title="撤销上次提交"
+                  >
+                    <RotateCcw
+                      className={cn(
+                        "w-3.5 h-3.5",
+                        isRevoking && "animate-spin",
+                      )}
+                      style={{ animationDirection: "reverse" }}
+                    />
+                  </Button>
+                )}
+
+                {/* <Button
                      size="sm"
                      variant="default"
                      onClick={handlePush}
@@ -628,186 +752,206 @@ export function RepoView({ repoPath }: RepoViewProps) {
                      <Upload className={cn("w-3.5 h-3.5 mr-2", isPushing && "animate-pulse")} />
                      {isPushing ? '推送中...' : '提交推送'}
                    </Button> */}
-                </div>
-             )}
-           </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Main Content Area */}
       <div className="flex-1 min-h-0 overflow-hidden relative flex flex-col">
-        
         {/* Persistent Conflict Banner */}
-        <ConflictBanner 
-            onResolve={() => setViewMode('conflicts')} 
-        />
+        <ConflictBanner onResolve={() => setViewMode("conflicts")} />
 
         <div className="flex-1 relative flex flex-col min-w-0 overflow-hidden">
-            {/* Changes View */}
-            {viewMode === 'changes' && (
-                <div className="absolute inset-0 flex flex-col animate-in fade-in zoom-in-95 duration-200">
-                  <div className="flex-1 flex min-h-0">
-                    {/* Left side: File List */}
-                    <div className={cn(
-                      "flex flex-col flex-1 min-w-0 transition-all duration-300",
-                      selectedFile ? "w-1/3" : "w-full"
-                    )}>
-                      {/* File status summary */}
-                      {(currentStatus && (currentStatus.staged.length > 0 || currentStatus.unstaged.length > 0 || currentStatus.untracked.length > 0)) && (
-                        <div className="shrink-0 border-b bg-muted/30 px-4 py-2 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                              <AlertCircle className="w-4 h-4 text-amber-500" />
-                              <span className="text-sm font-medium">未提交的修改</span>
-                              <Badge variant="secondary" className="lc-badge">
-                                {(currentStatus.staged.length || 0) + (currentStatus.unstaged.length || 0) + (currentStatus.untracked.length || 0)}
-                              </Badge>
-                          </div>
+          {/* Changes View */}
+          {viewMode === "changes" && (
+            <div className="absolute inset-0 flex flex-col animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex-1 flex min-h-0">
+                {/* Left side: File List */}
+                <div
+                  className={cn(
+                    "flex flex-col flex-1 min-w-0 transition-all duration-300",
+                    selectedFile ? "w-1/3" : "w-full",
+                  )}
+                >
+                  {/* File status summary */}
+                  {currentStatus &&
+                    (currentStatus.staged.length > 0 ||
+                      currentStatus.unstaged.length > 0 ||
+                      currentStatus.untracked.length > 0) && (
+                      <div className="shrink-0 border-b bg-muted/30 px-4 py-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-amber-500" />
+                          <span className="text-sm font-medium">
+                            未提交的修改
+                          </span>
+                          <Badge variant="secondary" className="lc-badge">
+                            {(currentStatus.staged.length || 0) +
+                              (currentStatus.unstaged.length || 0) +
+                              (currentStatus.untracked.length || 0)}
+                          </Badge>
                         </div>
-                      )}
-                      
-                      <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
-                        <FileList repoPath={repoPath} />
-                      </div>
-                    </div>
-
-                    {/* Right side: Diff View */}
-                    {selectedFile && (
-                      <div className="w-2/3 border-l border-border/40 animate-in slide-in-from-right duration-300">
-                        <DiffView 
-                          repoPath={repoPath}
-                          filename={selectedFile} 
-                          diff={selectedFileDiff} 
-                          onClose={() => selectFile(repoPath, null)} 
-                        />
                       </div>
                     )}
-                  </div>
-                  
-                  <div className="shrink-0 z-20">
-                    <CommitPanel repoPath={repoPath} mode="single" />
+
+                  <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
+                    <FileList repoPath={repoPath} />
                   </div>
                 </div>
-            )}
 
-            {/* History View */}
-            {viewMode === 'history' && (
-               <div className="absolute inset-0 flex flex-col animate-in fade-in zoom-in-95 duration-200">
-                 <div className="shrink-0 border-b bg-muted/30 px-4 py-2 flex items-center justify-between">
-                   <div className="flex items-center gap-3">
-                     <div className="text-sm font-medium text-muted-foreground">提交历史</div>
-                     {commitHistory.length > 1 && (
-                       <Button
-                         variant="outline"
-                         className="h-6 gap-1.5 text-xs text-purple-600 border-purple-500/30 hover:bg-purple-500/5"
-                         onClick={() => setViewMode('rebase')}
-                       >
-                         <GitBranch className="w-3.5 h-3.5" />
-                         交互式 Rebase
-                       </Button>
-                     )}
-                   </div>
-                   <div className="flex items-center gap-2">
-                       <CommitSearch repoPath={repoPath} />
-                       <div className="w-px h-4 bg-border/50 mx-1" />
-                       <Button
-                         size="sm"
-                         variant={showGraph ? "secondary" : "ghost"}
-                         className="h-7 gap-1.5 text-xs px-2"
-                         onClick={() => setShowGraph(!showGraph)}
-                       >
-                         <GitGraph className="w-3.5 h-3.5" />
-                         {showGraph ? '隐藏图表' : '图表'}
-                       </Button>
-                   </div>
-                 </div>
-
-                 <div className="flex-1 overflow-hidden relative">
-                    {/* Show search results if active, otherwise showing history */}
-                    {/* We need to differentiate between normal history and filtered results */}
-                    <CommitListDisplay 
-                        repoPath={repoPath} 
-                        showGraph={showGraph} 
+                {/* Right side: Diff View */}
+                {selectedFile && (
+                  <div className="w-2/3 border-l border-border/40 animate-in slide-in-from-right duration-300">
+                    <DiffView
+                      repoPath={repoPath}
+                      filename={selectedFile}
+                      diff={selectedFileDiff}
+                      onClose={() => selectFile(repoPath, null)}
                     />
-                 </div>
-               </div>
-            )}
+                  </div>
+                )}
+              </div>
 
-            {/* Stashes View */}
-            {viewMode === 'stashes' && (
-               <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
-                 <StashPanel />
-               </div>
-            )}
+              <div className="shrink-0 z-20">
+                <CommitPanel repoPath={repoPath} mode="single" />
+              </div>
+            </div>
+          )}
 
-            {/* Tags View */}
-            {viewMode === 'tags' && (
-               <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
-                 <TagList />
-               </div>
-            )}
+          {/* History View */}
+          {viewMode === "history" && (
+            <div className="absolute inset-0 flex flex-col animate-in fade-in zoom-in-95 duration-200">
+              <div className="shrink-0 border-b bg-muted/30 px-4 py-2 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="text-sm font-medium text-muted-foreground">
+                    提交历史
+                  </div>
+                  {commitHistory.length > 1 && (
+                    <Button
+                      variant="outline"
+                      className="h-6 gap-1.5 text-xs text-purple-600 border-purple-500/30 hover:bg-purple-500/5"
+                      onClick={() => setViewMode("rebase")}
+                    >
+                      <GitBranch className="w-3.5 h-3.5" />
+                      交互式 Rebase
+                    </Button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <CommitSearch repoPath={repoPath} />
+                  <div className="w-px h-4 bg-border/50 mx-1" />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 gap-1.5 text-xs px-2"
+                    onClick={() => setIsExportDialogOpen(true)}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    导出
+                  </Button>
+                  <div className="w-px h-4 bg-border/50 mx-1" />
+                  <Button
+                    size="sm"
+                    variant={showGraph ? "secondary" : "ghost"}
+                    className="h-7 gap-1.5 text-xs px-2"
+                    onClick={() => setShowGraph(!showGraph)}
+                  >
+                    <GitGraph className="w-3.5 h-3.5" />
+                    {showGraph ? "隐藏图表" : "图表"}
+                  </Button>
+                </div>
+              </div>
 
-            {/* Conflicts View */}
-            {viewMode === 'conflicts' && (
-               <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
-                 <ConflictPanel repoPath={repoPath} onResolve={() => {
-                   setViewMode('changes');
-                 }} />
-               </div>
-            )}
+              <div className="flex-1 overflow-hidden relative">
+                {/* Show search results if active, otherwise showing history */}
+                {/* We need to differentiate between normal history and filtered results */}
+                <CommitListDisplay repoPath={repoPath} showGraph={showGraph} />
+              </div>
+            </div>
+          )}
 
-            {/* Rebase View */}
-            {viewMode === 'rebase' && (
-               <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
-                 <RebasePanel
-                   repoPath={repoPath}
-                   commits={commitHistory}
-                   onClose={() => {
-                     setViewMode('history');
-                   }}
-                   onComplete={() => {
-                     setViewMode('history');
-                     loadCommitHistory(repoPath);
-                   }}
-                 />
-               </div>
-            )}
+          {/* Stashes View */}
+          {viewMode === "stashes" && (
+            <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
+              <StashPanel />
+            </div>
+          )}
 
-            {/* Collaboration View */}
-            {viewMode === 'collaboration' && (
-               <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
-                 <ProviderPanel repoPath={repoPath} />
-               </div>
-            )}
+          {/* Tags View */}
+          {viewMode === "tags" && (
+            <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
+              <TagList />
+            </div>
+          )}
 
-            {/* Submodules View */}
-            {viewMode === 'submodules' && (
-               <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
-                 <SubmodulePanel />
-               </div>
-            )}
+          {/* Conflicts View */}
+          {viewMode === "conflicts" && (
+            <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
+              <ConflictPanel
+                repoPath={repoPath}
+                onResolve={() => {
+                  setViewMode("changes");
+                }}
+              />
+            </div>
+          )}
 
-            {/* LFS View */}
-            {viewMode === 'lfs' && (
-               <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
-                 <LfsPanel />
-               </div>
-            )}
+          {/* Rebase View */}
+          {viewMode === "rebase" && (
+            <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
+              <RebasePanel
+                repoPath={repoPath}
+                commits={commitHistory}
+                onClose={() => {
+                  setViewMode("history");
+                }}
+                onComplete={() => {
+                  setViewMode("history");
+                  loadCommitHistory(repoPath);
+                }}
+              />
+            </div>
+          )}
 
-            {/* Subtrees View */}
-            {viewMode === 'subtrees' && (
-               <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
-                 <SubtreePanel />
-               </div>
-            )}
+          {/* Collaboration View */}
+          {viewMode === "collaboration" && (
+            <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
+              <ProviderPanel repoPath={repoPath} />
+            </div>
+          )}
+
+          {/* Submodules View */}
+          {viewMode === "submodules" && (
+            <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
+              <SubmodulePanel />
+            </div>
+          )}
+
+          {/* LFS View */}
+          {viewMode === "lfs" && (
+            <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
+              <LfsPanel />
+            </div>
+          )}
+
+          {/* Subtrees View */}
+          {viewMode === "subtrees" && (
+            <div className="absolute inset-0 animate-in fade-in zoom-in-95 duration-200">
+              <SubtreePanel />
+            </div>
+          )}
         </div>
 
         {/* Operation Log Panel */}
         {showOperationLog && (
-            <div className="shrink-0 h-full border-l border-border/40 bg-background/95 backdrop-blur z-20">
-                <OperationLogPanel repoPath={repoPath} onClose={() => setShowOperationLog(false)} />
-            </div>
+          <div className="shrink-0 h-full border-l border-border/40 bg-background/95 backdrop-blur z-20">
+            <OperationLogPanel
+              repoPath={repoPath}
+              onClose={() => setShowOperationLog(false)}
+            />
+          </div>
         )}
-
       </div>
       <RemoteManagementDialog
         isOpen={isRemoteDialogOpen}
@@ -827,6 +971,17 @@ export function RepoView({ repoPath }: RepoViewProps) {
       >
         <Keyboard className="w-5 h-5" />
       </button>
+
+      {/* Export Dialog */}
+      {repo && (
+        <ExportDialog
+          isOpen={isExportDialogOpen}
+          onClose={() => setIsExportDialogOpen(false)}
+          commits={commitHistory}
+          repoName={repo.name}
+          branch={currentBranchInfo?.current || "main"}
+        />
+      )}
     </div>
   );
 }

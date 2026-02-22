@@ -8,6 +8,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { cn } from '../lib/utils';
 
 import { CreateBranchDialog } from './CreateBranchDialog';
+import { RenameBranchDialog } from './RenameBranchDialog';
 
 interface BranchSelectorProps {
   repoPath: string;
@@ -40,6 +41,8 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
   // Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [baseBranchForCreate, setBaseBranchForCreate] = useState<string | null>(null);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [branchToRename, setBranchToRename] = useState<string | null>(null);
 
   // Load git username from config if not saved
   useEffect(() => {
@@ -67,14 +70,21 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
       const errorStr = String(e);
       console.error('切换分支失败:', e);
 
-      // Check if it's a conflict error
-      if (errorStr.includes('conflict') || errorStr.includes('冲突') || errorStr.includes('uncommitted')) {
+      // Check if it's a conflict error with uncommitted changes
+      if (errorStr.includes('conflict') || errorStr.includes('冲突') || errorStr.includes('uncommitted') || errorStr.includes('changes')) {
         setErrorMessage(
-          '切换分支失败：存在未提交的更改或冲突。\n\n' +
-          '请先：\n' +
-          '1. 提交您的更改，或\n' +
-          '2. 使用贮存(Stash)保存更改\n\n' +
-          '然后重试。'
+          '⚠️ 无法切换分支：工作区有未提交的更改\n\n' +
+          '建议解决方案：\n' +
+          '• 提交更改：先提交当前分支的修改，然后切换\n' +
+          '• 贮存更改：使用 Stash 暂时保存更改，切换后再恢复\n' +
+          '• 放弃更改：如果确定不需要这些更改，可以放弃它们\n\n' +
+          '💡 提示：您可以在左侧文件列表中管理更改'
+        );
+      } else if (errorStr.includes('merge') || errorStr.includes('rebase')) {
+        setErrorMessage(
+          '⚠️ 无法切换分支：存在未完成的合并或变基操作\n\n' +
+          '请先完成或中止当前的合并/变基操作，然后再切换分支。\n\n' +
+          '您可以在"冲突"标签页中查看详细信息。'
         );
       } else {
         setErrorMessage(`切换分支失败: ${errorStr}`);
@@ -165,18 +175,23 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
     }
   };
 
-  const handleRenameBranch = async (branchName: string) => {
-    try {
-      // For now we don't have a prompt dialog in Tauri plugin-dialog that returns text
-      // We'll use a simple window.prompt for now
-      const newName = window.prompt(`重命名分支 "${branchName}" 为:`, branchName);
-      if (newName && newName !== branchName) {
-        await renameBranch(repoPath, branchName, newName);
-        setContextMenu(null);
+  const handleRenameBranch = (branchName: string) => {
+    setBranchToRename(branchName);
+    setRenameDialogOpen(true);
+    setContextMenu(null);
+  };
+
+  const handleRenameConfirm = async (newBranchName: string) => {
+    if (branchToRename) {
+      try {
+        await renameBranch(repoPath, branchToRename, newBranchName);
+        setRenameDialogOpen(false);
+        setBranchToRename(null);
+      } catch (e) {
+        console.error('重命名分支失败:', e);
+        setErrorMessage(String(e));
+        throw e;
       }
-    } catch (e) {
-      console.error('重命名分支失败:', e);
-      setErrorMessage(String(e));
     }
   };
 
@@ -367,6 +382,18 @@ export function BranchSelector({ repoPath }: BranchSelectorProps) {
                   setBaseBranchForCreate(null);
                 }}
                 onCreate={handleCreateBranchConfirm}
+              />
+            )}
+
+            {branchToRename && (
+              <RenameBranchDialog
+                isOpen={renameDialogOpen}
+                currentBranchName={branchToRename}
+                onClose={() => {
+                  setRenameDialogOpen(false);
+                  setBranchToRename(null);
+                }}
+                onRename={handleRenameConfirm}
               />
             )}
 
